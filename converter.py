@@ -104,21 +104,35 @@ def _dxf_to_svg(dxf_path: Path) -> str:
     logger.info(f"Entidades en modelspace: {entity_count}")
 
     # Forzar visibilidad completa: capas apagadas/congeladas y entidades invisibles
-    # Los ingenieros guardan con capas apagadas; para el visor queremos todo visible.
+    n_layers_fixed = 0
     for layer in doc.layers:
-        layer.on = True        # color = abs(color) en ezdxf
-        layer.dxf.flags = 0   # limpia frozen, frozen-by-default, locked
+        was_off = not layer.on
+        was_frozen = layer.is_frozen
+        layer.on = True
+        layer.dxf.flags = 0
         try:
             layer.thaw()
         except Exception:
             pass
+        # ezdxf también usa color negativo para indicar capa apagada
+        try:
+            if layer.dxf.color < 0:
+                layer.dxf.color = abs(layer.dxf.color)
+        except Exception:
+            pass
+        if was_off or was_frozen:
+            n_layers_fixed += 1
 
-    # Limpiar flag invisible a nivel de entidad (modelspace y todos los bloques)
+    logger.info(f"Capas activadas: {n_layers_fixed} de {sum(1 for _ in doc.layers)}")
+
+    n_entities_fixed = 0
     def _force_visible(entities):
+        nonlocal n_entities_fixed
         for e in entities:
             try:
-                if e.dxf.hasattr('invisible'):
+                if e.dxf.hasattr('invisible') and e.dxf.invisible:
                     e.dxf.invisible = 0
+                    n_entities_fixed += 1
             except Exception:
                 pass
 
@@ -126,7 +140,23 @@ def _dxf_to_svg(dxf_path: Path) -> str:
     for block in doc.blocks:
         _force_visible(block)
 
+    logger.info(f"Flags invisible limpiados en entidades: {n_entities_fixed}")
+
     context = RenderContext(doc)
+
+    # Forzar visibilidad en el cache interno del contexto de ezdxf
+    try:
+        layer_cache = (
+            getattr(context, '_layers', None) or
+            getattr(context, '_layer_properties', None)
+        )
+        if layer_cache:
+            for props in layer_cache.values():
+                if hasattr(props, 'is_visible'):
+                    props.is_visible = True
+            logger.info(f"Visibilidad forzada en contexto: {len(layer_cache)} capas")
+    except Exception as e:
+        logger.warning(f"Override de contexto no disponible: {e}")
     backend = SVGBackend()
     frontend = Frontend(context, backend)
 
