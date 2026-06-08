@@ -10,7 +10,7 @@ const MAX_RENDER_PX = 8192;
 let _qualityTimer = null;
 
 // Tras cada zoom, reajusta el tamaño real del SVG para que CSS scale → ≈1.
-// Resultado: GPU escala una imagen de alta resolución → nitidez sin demora.
+// Solo se ejecuta cuando el usuario lleva 700ms sin moverse.
 function commitRenderQuality() {
     const w = wrapper();
     if (!w) return;
@@ -22,18 +22,25 @@ function commitRenderQuality() {
     const newW = Math.max(256, Math.min(MAX_RENDER_PX, Math.round(visualW)));
     const newH = Math.round(newW * visualH / visualW);
 
+    // Ignorar si el cambio es menor del 20% (no vale la pena rerasterizar)
+    const ratio = newW / svgW;
+    if (ratio > 0.8 && ratio < 1.25) return;
+
+    // Conservar el tamaño visual mínimo (minScale se refiere a svgW actual)
+    const minVisualW = minScale * svgW;
+
     svg.setAttribute('width',  newW);
     svg.setAttribute('height', newH);
-    scale  = visualW / newW;   // ≈ 1 cuando no se llega al límite
-    svgW   = newW;
-    svgH   = newH;
-    minScale = scale * 0.5;
+    scale    = visualW / newW;   // ≈ 1 cuando no se llega al límite
+    svgW     = newW;
+    svgH     = newH;
+    minScale = minVisualW / newW; // mismo tamaño visual mínimo con las nuevas dims
     applyTransform();
 }
 
 function scheduleQualityUpdate() {
     clearTimeout(_qualityTimer);
-    _qualityTimer = setTimeout(commitRenderQuality, 300);
+    _qualityTimer = setTimeout(commitRenderQuality, 700);
 }
 
 const viewer = document.getElementById('viewer');
