@@ -3,6 +3,7 @@
 // ── Pan / Zoom state ──────────────────────────────────────────────────────────
 let scale = 1, tx = 0, ty = 0;
 let svgW = 0, svgH = 0;
+let minScale = 0.02;
 let dragging = false, lastX = 0, lastY = 0, lastDist = 0;
 
 const viewer = document.getElementById('viewer');
@@ -19,13 +20,14 @@ function fitToScreen() {
     const vw = viewer.clientWidth;
     const vh = viewer.clientHeight;
     scale = Math.min(vw / svgW, vh / svgH) * 0.92;
+    minScale = scale * 0.5;
     tx = (vw - svgW * scale) / 2;
     ty = (vh - svgH * scale) / 2;
     applyTransform();
 }
 
 function zoomAt(factor, cx, cy) {
-    const s = Math.max(0.02, Math.min(200, scale * factor));
+    const s = Math.max(minScale, Math.min(200, scale * factor));
     const k = s / scale;
     tx = cx - k * (cx - tx);
     ty = cy - k * (cy - ty);
