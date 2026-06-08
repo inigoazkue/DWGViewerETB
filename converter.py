@@ -35,16 +35,20 @@ def _dwg_to_dxf(dwg_path: Path) -> Path:
     tmp = Path(tempfile.mkdtemp())
     out = tmp / (dwg_path.stem + '.dxf')
 
-    # LibreDWG (Linux — apt install libredwg-utils)
+    # LibreDWG (Linux — compilado desde fuente o apt install libredwg-utils)
     try:
-        subprocess.run(
+        result = subprocess.run(
             ['dwg2dxf', str(dwg_path), '-o', str(out)],
             capture_output=True, timeout=120, check=False
         )
+        if result.stderr:
+            logger.warning(f"dwg2dxf: {result.stderr.decode('utf-8', errors='replace')[:500]}")
         if out.exists() and out.stat().st_size > 0:
+            logger.info(f"DXF generado por LibreDWG: {out.stat().st_size} bytes")
             return out
+        logger.warning("dwg2dxf no generó DXF o está vacío")
     except FileNotFoundError:
-        logger.warning("dwg2dxf no encontrado. En Ubuntu: sudo apt install libredwg-utils")
+        logger.warning("dwg2dxf no encontrado")
     except subprocess.TimeoutExpired:
         raise RuntimeError("Timeout convirtiendo DWG (¿archivo muy grande?)")
 
@@ -96,15 +100,24 @@ def _dxf_to_svg(dxf_path: Path) -> str:
         doc, _ = recover.readfile(str(dxf_path))
 
     msp = doc.modelspace()
+    entity_count = sum(1 for _ in msp)
+    logger.info(f"Entidades en modelspace: {entity_count}")
+
     context = RenderContext(doc)
     backend = SVGBackend()
     frontend = Frontend(context, backend)
 
     lp = LayoutProperties.from_layout(msp)
+    # Fondo blanco + entidades oscuras (aspecto de plano impreso)
+    # En AutoCAD, color 7 = blanco en pantalla = negro al imprimir
+    # set_colors('#ffffff') remapea color 7 → negro sobre fondo blanco
     try:
-        lp.set_colors('#ffffff')
-    except Exception:
-        pass
+        lp.set_colors(bg='#ffffff')
+    except TypeError:
+        try:
+            lp.set_colors('#ffffff')
+        except Exception as e:
+            logger.warning(f"set_colors falló: {e}")
 
     frontend.draw_layout(msp, finalize=True, layout_properties=lp)
 
