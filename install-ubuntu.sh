@@ -14,7 +14,27 @@ echo "========================================"
 
 # Dependencias del sistema
 apt-get update
-apt-get install -y python3 python3-pip python3-venv libredwg-utils cifs-utils
+add-apt-repository -y universe
+apt-get install -y python3 python3-pip python3-venv cifs-utils
+
+# LibreDWG: intentar paquete, compilar desde fuente si no está disponible
+if apt-get install -y libredwg-utils 2>/dev/null; then
+    echo "LibreDWG instalado desde repositorio"
+else
+    echo "libredwg-utils no disponible en este Ubuntu, compilando desde fuente..."
+    apt-get install -y build-essential autoconf automake libtool pkg-config git
+    TMP_DWG=$(mktemp -d)
+    git clone https://github.com/LibreDWG/libredwg.git --depth 1 "$TMP_DWG/libredwg"
+    cd "$TMP_DWG/libredwg"
+    sh autogen.sh
+    ./configure --disable-docs --disable-tests
+    make -j$(nproc)
+    make install
+    ldconfig
+    cd "$APP_DIR"
+    rm -rf "$TMP_DWG"
+    echo "LibreDWG compilado e instalado correctamente"
+fi
 
 # Entorno virtual Python
 cd "$APP_DIR"
