@@ -161,16 +161,7 @@ def _dxf_to_svg(dxf_path: Path) -> str:
     frontend = Frontend(context, backend)
 
     lp = LayoutProperties.from_layout(msp)
-    # Fondo blanco + entidades oscuras (aspecto de plano impreso)
-    # En AutoCAD, color 7 = blanco en pantalla = negro al imprimir
-    # set_colors('#ffffff') remapea color 7 → negro sobre fondo blanco
-    try:
-        lp.set_colors(bg='#ffffff')
-    except TypeError:
-        try:
-            lp.set_colors('#ffffff')
-        except Exception as e:
-            logger.warning(f"set_colors falló: {e}")
+    # Fondo negro (aspecto AutoCAD en pantalla, mejor contraste para los colores de los planos)
 
     frontend.draw_layout(msp, finalize=True, layout_properties=lp)
 
