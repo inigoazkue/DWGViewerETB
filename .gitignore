@@ -1,0 +1,10 @@
+Planoak/
+cache/
+.claude/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+config.local.json
+*.egg-info/
+.env

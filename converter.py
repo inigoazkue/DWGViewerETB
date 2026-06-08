@@ -1,0 +1,110 @@
+import subprocess
+import sys
+import tempfile
+import logging
+from pathlib import Path
+
+logger = logging.getLogger(__name__)
+
+
+def to_svg(input_path: Path, cache_dir: Path, base_path: Path) -> str:
+    rel = input_path.relative_to(base_path)
+    svg_cache = cache_dir / rel.with_suffix('.svg')
+
+    if svg_cache.exists() and svg_cache.stat().st_mtime >= input_path.stat().st_mtime:
+        logger.info(f"Cache hit: {rel}")
+        return svg_cache.read_text(encoding='utf-8')
+
+    logger.info(f"Convirtiendo: {rel}")
+    svg_cache.parent.mkdir(parents=True, exist_ok=True)
+
+    suffix = input_path.suffix.lower()
+    if suffix == '.dxf':
+        dxf_path = input_path
+    elif suffix == '.dwg':
+        dxf_path = _dwg_to_dxf(input_path)
+    else:
+        raise ValueError(f"Formato no soportado: {suffix}")
+
+    svg = _dxf_to_svg(dxf_path)
+    svg_cache.write_text(svg, encoding='utf-8')
+    return svg
+
+
+def _dwg_to_dxf(dwg_path: Path) -> Path:
+    tmp = Path(tempfile.mkdtemp())
+    out = tmp / (dwg_path.stem + '.dxf')
+
+    # LibreDWG (Linux — apt install libredwg-utils)
+    try:
+        subprocess.run(
+            ['dwg2dxf', str(dwg_path), '-o', str(out)],
+            capture_output=True, timeout=120, check=False
+        )
+        if out.exists() and out.stat().st_size > 0:
+            return out
+    except FileNotFoundError:
+        logger.warning("dwg2dxf no encontrado. En Ubuntu: sudo apt install libredwg-utils")
+    except subprocess.TimeoutExpired:
+        raise RuntimeError("Timeout convirtiendo DWG (¿archivo muy grande?)")
+
+    # ODA File Converter (Windows dev o Linux alternativo)
+    for oda in _find_oda():
+        try:
+            subprocess.run(
+                [oda, str(dwg_path.parent), str(tmp), 'ACAD2018', 'DXF', '0', '1'],
+                capture_output=True, timeout=120, check=False
+            )
+            if out.exists() and out.stat().st_size > 0:
+                return out
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            continue
+
+    raise RuntimeError(
+        "No se puede convertir el archivo DWG.\n"
+        "En Ubuntu instala LibreDWG: sudo apt install libredwg-utils\n"
+        "En Windows instala ODA File Converter (gratuito en opendesign.com)\n"
+        "Alternativa para desarrollo: usa archivos .dxf en vez de .dwg"
+    )
+
+
+def _find_oda() -> list:
+    if sys.platform == 'win32':
+        candidates = [
+            r'C:\Program Files\ODA\ODAFileConverter\ODAFileConverter.exe',
+            r'C:\Program Files (x86)\ODA\ODAFileConverter\ODAFileConverter.exe',
+        ]
+    else:
+        candidates = [
+            '/usr/bin/ODAFileConverter',
+            '/usr/local/bin/ODAFileConverter',
+            '/opt/ODA/ODAFileConverter',
+        ]
+    return [p for p in candidates if Path(p).exists()]
+
+
+def _dxf_to_svg(dxf_path: Path) -> str:
+    import ezdxf
+    from ezdxf import recover
+    from ezdxf.addons.drawing import RenderContext, Frontend
+    from ezdxf.addons.drawing.svg import SVGBackend
+    from ezdxf.addons.drawing.properties import LayoutProperties
+
+    try:
+        doc = ezdxf.readfile(str(dxf_path))
+    except Exception:
+        doc, _ = recover.readfile(str(dxf_path))
+
+    msp = doc.modelspace()
+    context = RenderContext(doc)
+    backend = SVGBackend()
+    frontend = Frontend(context, backend)
+
+    lp = LayoutProperties.from_layout(msp)
+    try:
+        lp.set_colors('#ffffff')
+    except Exception:
+        pass
+
+    frontend.draw_layout(msp, finalize=True, layout_properties=lp)
+    return backend.get_string()

@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Visor de Planos</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div id="app">
+        <aside id="sidebar">
+            <div id="sidebar-header">Planos</div>
+            <div id="file-tree"></div>
+        </aside>
+
+        <div id="content">
+            <div id="toolbar">
+                <button id="btn-toggle" title="Mostrar/ocultar carpetas">&#9776;</button>
+                <span id="current-file">Selecciona un plano</span>
+                <div id="zoom-controls">
+                    <button id="btn-fit" title="Ajustar a pantalla">[ ]</button>
+                    <button id="btn-zoom-in" title="Acercar">+</button>
+                    <button id="btn-zoom-out" title="Alejar">&#8722;</button>
+                </div>
+            </div>
+
+            <div id="viewer">
+                <div id="placeholder">
+                    <p>Selecciona un plano del &aacute;rbol de carpetas</p>
+                </div>
+                <div id="loading" class="hidden">
+                    <div class="spinner"></div>
+                    <p class="loading-msg">
+                        Cargando plano&hellip;<br>
+                        <small>La primera vez puede tardar unos segundos</small>
+                    </p>
+                </div>
+                <div id="error-panel" class="hidden">
+                    <div id="error-msg"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="app.js"></script>
+</body>
+</html>
