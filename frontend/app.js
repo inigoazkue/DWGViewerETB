@@ -7,10 +7,27 @@ let minScale = 0.02;
 let dragging = false, lastX = 0, lastY = 0, lastDist = 0;
 
 const MAX_RENDER_PX = 8192;
-let _qualityTimer = null;
+let _gpuTimer = null;
+let _gpuActive = false;
 
-// Tras cada zoom, reajusta el tamaño real del SVG para que CSS scale → ≈1.
-// Solo se ejecuta cuando el usuario lleva 700ms sin moverse.
+// Durante la interaccion activa: GPU acelera el transform (fluido).
+// 700ms despues de la ultima accion: se desactiva GPU y se rerasteriza
+// el SVG como vector puro al tamano visual actual → siempre nitido.
+function activateGPU() {
+    const w = wrapper();
+    if (w && !_gpuActive) {
+        w.style.willChange = 'transform';
+        _gpuActive = true;
+    }
+    clearTimeout(_gpuTimer);
+    _gpuTimer = setTimeout(() => {
+        const w = wrapper();
+        if (w) { w.style.willChange = 'auto'; }
+        _gpuActive = false;
+        commitRenderQuality();
+    }, 700);
+}
+
 function commitRenderQuality() {
     const w = wrapper();
     if (!w) return;
@@ -22,33 +39,17 @@ function commitRenderQuality() {
     const newW = Math.max(256, Math.min(MAX_RENDER_PX, Math.round(visualW)));
     const newH = Math.round(newW * visualH / visualW);
 
-    // Ignorar si el cambio es menor del 20% (no vale la pena rerasterizar)
     const ratio = newW / svgW;
     if (ratio > 0.8 && ratio < 1.25) return;
 
-    // Conservar el tamaño visual mínimo (minScale se refiere a svgW actual)
     const minVisualW = minScale * svgW;
-
     svg.setAttribute('width',  newW);
     svg.setAttribute('height', newH);
     scale    = visualW / newW;
     svgW     = newW;
     svgH     = newH;
     minScale = minVisualW / newW;
-
-    // Forzar que la GPU tome la nueva rasterización:
-    // quitar will-change → el browser rasteriza el SVG actualizado →
-    // reponerlo → nueva capa GPU con la imagen nítida.
-    w.style.willChange = 'auto';
-    requestAnimationFrame(() => {
-        w.style.willChange = 'transform';
-        applyTransform();
-    });
-}
-
-function scheduleQualityUpdate() {
-    clearTimeout(_qualityTimer);
-    _qualityTimer = setTimeout(commitRenderQuality, 700);
+    applyTransform(); // will-change ya es 'auto': renderiza como vector
 }
 
 const viewer = document.getElementById('viewer');
@@ -69,7 +70,7 @@ function fitToScreen() {
     tx = (vw - svgW * scale) / 2;
     ty = (vh - svgH * scale) / 2;
     applyTransform();
-    scheduleQualityUpdate();
+    activateGPU();
 }
 
 function zoomAt(factor, cx, cy) {
@@ -79,7 +80,7 @@ function zoomAt(factor, cx, cy) {
     ty = cy - k * (cy - ty);
     scale = s;
     applyTransform();
-    scheduleQualityUpdate();
+    activateGPU();
 }
 
 // ── Mouse events ──────────────────────────────────────────────────────────────

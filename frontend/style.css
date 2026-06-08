@@ -205,7 +205,6 @@ button:active { background: #3166b0; border-color: #3166b0; }
     top: 0;
     left: 0;
     transform-origin: 0 0;
-    will-change: transform;
 }
 
 #svg-wrapper svg { display: block; }
