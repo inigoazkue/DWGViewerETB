@@ -128,7 +128,7 @@ async function openFile(path, name) {
     const treeEl = document.querySelector(`.tree-file[data-path="${CSS.escape(path)}"]`);
     if (treeEl) treeEl.classList.add('active');
 
-    elCurrentFile.textContent = name;
+    elCurrentFile.textContent = name.replace(/\.(dwg|dxf)$/i, '');
     elPlaceholder.classList.add('hidden');
     elError.classList.add('hidden');
     elLoading.classList.remove('hidden');
@@ -142,7 +142,7 @@ async function openFile(path, name) {
             const detail = await resp.text().catch(() => '');
             let msg = detail;
             try { msg = JSON.parse(detail).detail || detail; } catch (_) {}
-            throw new Error(msg || `Error HTTP ${resp.status}`);
+            throw new Error(msg || `HTTP errorea ${resp.status}`);
         }
 
         const svgText = await resp.text();
@@ -151,7 +151,7 @@ async function openFile(path, name) {
         div.innerHTML = svgText;
 
         const svg = div.querySelector('svg');
-        if (!svg) throw new Error('La respuesta no contiene un SVG válido');
+        if (!svg) throw new Error('Erantzunak ez du baliozko SVG-rik');
 
         const vb = svg.viewBox.baseVal;
         if (vb && vb.width > 0 && vb.height > 0) {
@@ -205,17 +205,17 @@ async function loadTree() {
     const container = document.getElementById('file-tree');
     try {
         const resp = await fetch('/api/tree');
-        if (!resp.ok) throw new Error(`HTTP ${resp.status}`);
+        if (!resp.ok) throw new Error(`HTTP errorea ${resp.status}`);
         const tree = await resp.json();
         container.innerHTML = '';
         renderNode(tree, container, true);
         if (!container.children.length) {
-            container.textContent = 'No hay planos en la carpeta configurada.';
+            container.textContent = 'Ez dago planorik konfiguratutako karpetan.';
             container.style.padding = '16px';
             container.style.color = '#666';
         }
     } catch (e) {
-        container.textContent = 'Error cargando árbol: ' + e.message;
+        container.textContent = 'Errorea karpeta-zuhaitza kargatzean: ' + e.message;
         container.style.padding = '16px';
         container.style.color = '#c44';
     }

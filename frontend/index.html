@@ -1,38 +1,39 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="eu">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Visor de Planos</title>
+    <title>Planoen Ikusgailua</title>
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
     <div id="app">
         <aside id="sidebar">
-            <div id="sidebar-header">Planos</div>
+            <div id="sidebar-header">Planoak</div>
             <div id="file-tree"></div>
         </aside>
 
         <div id="content">
             <div id="toolbar">
-                <button id="btn-toggle" title="Mostrar/ocultar carpetas">&#9776;</button>
-                <span id="current-file">Selecciona un plano</span>
+                <button id="btn-toggle" title="Karpetак erakutsi/ezkutatu">&#9776;</button>
+                <span id="current-file">Aukeratu plano bat</span>
+                <img id="logo" src="Eitb_corp.svg.png" alt="EiTB">
                 <div id="zoom-controls">
-                    <button id="btn-fit" title="Ajustar a pantalla">[ ]</button>
-                    <button id="btn-zoom-in" title="Acercar">+</button>
-                    <button id="btn-zoom-out" title="Alejar">&#8722;</button>
+                    <button id="btn-fit" title="Pantailara egokitu">[ ]</button>
+                    <button id="btn-zoom-in" title="Handitu">+</button>
+                    <button id="btn-zoom-out" title="Txikitu">&#8722;</button>
                 </div>
             </div>
 
             <div id="viewer">
                 <div id="placeholder">
-                    <p>Selecciona un plano del &aacute;rbol de carpetas</p>
+                    <p>Aukeratu plano bat karpeta-zuhaitzean</p>
                 </div>
                 <div id="loading" class="hidden">
                     <div class="spinner"></div>
                     <p class="loading-msg">
-                        Cargando plano&hellip;<br>
-                        <small>La primera vez puede tardar unos segundos</small>
+                        Planoa kargatzen&hellip;<br>
+                        <small>Lehen aldian segundo batzuk behar ditzake</small>
                     </p>
                 </div>
                 <div id="error-panel" class="hidden">

@@ -141,6 +141,7 @@ details > summary:active { background: var(--active); }
     padding: 0 14px;
     gap: 10px;
     flex-shrink: 0;
+    position: relative;
 }
 
 #current-file {
@@ -150,6 +151,15 @@ details > summary:active { background: var(--active); }
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+#logo {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    height: 34px;
+    pointer-events: none;
+    user-select: none;
 }
 
 #zoom-controls {
