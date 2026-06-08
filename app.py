@@ -1,5 +1,7 @@
+import asyncio
 import json
 import logging
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from pathlib import Path
 
@@ -27,19 +29,33 @@ if not CACHE_PATH.is_absolute():
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
 
+_executor = ThreadPoolExecutor(max_workers=1)
+
+
+def _startup_task():
+    removed = converter.cleanup_orphaned_svgs(PLANOS_PATH, CACHE_PATH)
+    if removed:
+        logger.info(f"Cache: {removed} SVGs huerfanos eliminados")
+    converter.pregenerate_depth1(PLANOS_PATH, CACHE_PATH)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     logger.info(f"Planos: {PLANOS_PATH}")
     logger.info(f"Cache:  {CACHE_PATH}")
     if not PLANOS_PATH.exists():
         logger.warning(f"ADVERTENCIA: la ruta de planos no existe: {PLANOS_PATH}")
+    else:
+        loop = asyncio.get_event_loop()
+        loop.run_in_executor(_executor, _startup_task)
     yield
+    _executor.shutdown(wait=False)
 
-
-app = FastAPI(title="Visor de Planos", lifespan=lifespan)
 
 import converter
 import file_browser
+
+app = FastAPI(title="Visor de Planos", lifespan=lifespan)
 
 
 @app.get("/api/tree")

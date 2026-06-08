@@ -7,6 +7,48 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 
+def cleanup_orphaned_svgs(base_path: Path, cache_dir: Path) -> int:
+    """Elimina SVGs en cache cuyo DWG/DXF original ya no existe."""
+    removed = 0
+    for svg_path in cache_dir.rglob('*.svg'):
+        rel = svg_path.relative_to(cache_dir)
+        source_exists = any(
+            (base_path / rel.with_suffix(ext)).exists()
+            for ext in ('.dwg', '.dxf')
+        )
+        if not source_exists:
+            svg_path.unlink(missing_ok=True)
+            removed += 1
+            logger.info(f"SVG huerfano eliminado: {rel}")
+    return removed
+
+
+def pregenerate_depth1(base_path: Path, cache_dir: Path) -> dict:
+    """Pregera SVGs para DWGs del primer nivel de carpetas (no subcarpetas)."""
+    stats = {'generados': 0, 'en_cache': 0, 'errores': 0}
+    candidates = sorted(
+        list(base_path.glob('*.dwg')) +
+        list(base_path.glob('*.dxf')) +
+        list(base_path.glob('*/*.dwg')) +
+        list(base_path.glob('*/*.dxf'))
+    )
+    logger.info(f"Pregeneracion: {len(candidates)} planos en primer nivel")
+    for file_path in candidates:
+        rel = file_path.relative_to(base_path)
+        svg_cache = cache_dir / rel.with_suffix('.svg')
+        if svg_cache.exists() and svg_cache.stat().st_mtime >= file_path.stat().st_mtime:
+            stats['en_cache'] += 1
+            continue
+        try:
+            to_svg(file_path, cache_dir, base_path)
+            stats['generados'] += 1
+        except Exception as e:
+            logger.error(f"Pregeneracion fallida [{rel}]: {e}")
+            stats['errores'] += 1
+    logger.info(f"Pregeneracion completada: {stats}")
+    return stats
+
+
 def to_svg(input_path: Path, cache_dir: Path, base_path: Path) -> str:
     rel = input_path.relative_to(base_path)
     svg_cache = cache_dir / rel.with_suffix('.svg')
