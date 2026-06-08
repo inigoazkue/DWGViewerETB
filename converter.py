@@ -107,4 +107,9 @@ def _dxf_to_svg(dxf_path: Path) -> str:
         pass
 
     frontend.draw_layout(msp, finalize=True, layout_properties=lp)
-    return backend.get_string()
+
+    try:
+        from ezdxf.addons.drawing.layout import Page
+        return backend.get_string(Page(0, 0))
+    except TypeError:
+        return backend.get_string()
