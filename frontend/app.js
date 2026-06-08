@@ -6,6 +6,36 @@ let svgW = 0, svgH = 0;
 let minScale = 0.02;
 let dragging = false, lastX = 0, lastY = 0, lastDist = 0;
 
+const MAX_RENDER_PX = 8192;
+let _qualityTimer = null;
+
+// Tras cada zoom, reajusta el tamaño real del SVG para que CSS scale → ≈1.
+// Resultado: GPU escala una imagen de alta resolución → nitidez sin demora.
+function commitRenderQuality() {
+    const w = wrapper();
+    if (!w) return;
+    const svg = w.querySelector('svg');
+    if (!svg || !svgW || !svgH) return;
+
+    const visualW = svgW * scale;
+    const visualH = svgH * scale;
+    const newW = Math.max(256, Math.min(MAX_RENDER_PX, Math.round(visualW)));
+    const newH = Math.round(newW * visualH / visualW);
+
+    svg.setAttribute('width',  newW);
+    svg.setAttribute('height', newH);
+    scale  = visualW / newW;   // ≈ 1 cuando no se llega al límite
+    svgW   = newW;
+    svgH   = newH;
+    minScale = scale * 0.5;
+    applyTransform();
+}
+
+function scheduleQualityUpdate() {
+    clearTimeout(_qualityTimer);
+    _qualityTimer = setTimeout(commitRenderQuality, 300);
+}
+
 const viewer = document.getElementById('viewer');
 
 function wrapper() { return document.getElementById('svg-wrapper'); }
@@ -24,6 +54,7 @@ function fitToScreen() {
     tx = (vw - svgW * scale) / 2;
     ty = (vh - svgH * scale) / 2;
     applyTransform();
+    scheduleQualityUpdate();
 }
 
 function zoomAt(factor, cx, cy) {
@@ -33,6 +64,7 @@ function zoomAt(factor, cx, cy) {
     ty = cy - k * (cy - ty);
     scale = s;
     applyTransform();
+    scheduleQualityUpdate();
 }
 
 // ── Mouse events ──────────────────────────────────────────────────────────────
@@ -155,8 +187,11 @@ async function openFile(path, name) {
 
         const vb = svg.viewBox.baseVal;
         if (vb && vb.width > 0 && vb.height > 0) {
-            svgW = vb.width;
-            svgH = vb.height;
+            // Renderizar a 2× el viewport: alta resolución inicial sin usar
+            // las coordenadas DXF en bruto (que pueden ser 500000px y causan pixelado)
+            const initW = viewer.clientWidth * 2;
+            svgW = Math.min(initW, MAX_RENDER_PX);
+            svgH = Math.round(svgW * vb.height / vb.width);
         } else {
             svgW = parseFloat(svg.getAttribute('width'))  || 1000;
             svgH = parseFloat(svg.getAttribute('height')) || 700;
