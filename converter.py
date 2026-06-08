@@ -103,6 +103,15 @@ def _dxf_to_svg(dxf_path: Path) -> str:
     entity_count = sum(1 for _ in msp)
     logger.info(f"Entidades en modelspace: {entity_count}")
 
+    # Activar todas las capas: el DWG puede tener capas desactivadas/congeladas
+    # tal como las dejó el ingeniero al guardar. Para el visor queremos verlas todas.
+    for layer in doc.layers:
+        layer.on = True
+        try:
+            layer.thaw()
+        except Exception:
+            pass
+
     context = RenderContext(doc)
     backend = SVGBackend()
     frontend = Frontend(context, backend)
