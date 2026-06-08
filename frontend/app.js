@@ -31,11 +31,19 @@ function commitRenderQuality() {
 
     svg.setAttribute('width',  newW);
     svg.setAttribute('height', newH);
-    scale    = visualW / newW;   // ≈ 1 cuando no se llega al límite
+    scale    = visualW / newW;
     svgW     = newW;
     svgH     = newH;
-    minScale = minVisualW / newW; // mismo tamaño visual mínimo con las nuevas dims
-    applyTransform();
+    minScale = minVisualW / newW;
+
+    // Forzar que la GPU tome la nueva rasterización:
+    // quitar will-change → el browser rasteriza el SVG actualizado →
+    // reponerlo → nueva capa GPU con la imagen nítida.
+    w.style.willChange = 'auto';
+    requestAnimationFrame(() => {
+        w.style.willChange = 'transform';
+        applyTransform();
+    });
 }
 
 function scheduleQualityUpdate() {
