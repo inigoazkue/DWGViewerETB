@@ -103,14 +103,28 @@ def _dxf_to_svg(dxf_path: Path) -> str:
     entity_count = sum(1 for _ in msp)
     logger.info(f"Entidades en modelspace: {entity_count}")
 
-    # Activar todas las capas: el DWG puede tener capas desactivadas/congeladas
-    # tal como las dejó el ingeniero al guardar. Para el visor queremos verlas todas.
+    # Forzar visibilidad completa: capas apagadas/congeladas y entidades invisibles
+    # Los ingenieros guardan con capas apagadas; para el visor queremos todo visible.
     for layer in doc.layers:
-        layer.on = True
+        layer.on = True        # color = abs(color) en ezdxf
+        layer.dxf.flags = 0   # limpia frozen, frozen-by-default, locked
         try:
             layer.thaw()
         except Exception:
             pass
+
+    # Limpiar flag invisible a nivel de entidad (modelspace y todos los bloques)
+    def _force_visible(entities):
+        for e in entities:
+            try:
+                if e.dxf.hasattr('invisible'):
+                    e.dxf.invisible = 0
+            except Exception:
+                pass
+
+    _force_visible(msp)
+    for block in doc.blocks:
+        _force_visible(block)
 
     context = RenderContext(doc)
     backend = SVGBackend()
