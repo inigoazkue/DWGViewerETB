@@ -8,14 +8,14 @@
 :root {
     --sidebar-w: 300px;
     --toolbar-h: 60px;
-    --dark:   #1a1d24;
-    --darker: #13151a;
-    --hover:  #252a35;
-    --active: #1e3a6e;
-    --accent: #4a7fc7;
-    --border: #2c2f3d;
-    --text:   #e0e0e0;
-    --muted:  #7a7f96;
+    --dark:   #0d2240;
+    --darker: #081628;
+    --hover:  #123060;
+    --active: #0d4a8a;
+    --accent: #009fdc;
+    --border: #1a3a6a;
+    --text:   #ddeeff;
+    --muted:  #6a9ac4;
 }
 
 html, body {
