@@ -29,14 +29,24 @@ if not CACHE_PATH.is_absolute():
 CACHE_PATH.mkdir(parents=True, exist_ok=True)
 
 
+REFRESH_INTERVAL = int(config.get("refresh_interval_hours", 4)) * 3600
+
 _executor = ThreadPoolExecutor(max_workers=1)
 
 
-def _startup_task():
+def _maintenance_task():
     removed = converter.cleanup_orphaned_svgs(PLANOS_PATH, CACHE_PATH)
     if removed:
         logger.info(f"Cache: {removed} SVGs huerfanos eliminados")
     converter.pregenerate_depth1(PLANOS_PATH, CACHE_PATH)
+
+
+async def _maintenance_loop():
+    while True:
+        loop = asyncio.get_event_loop()
+        await loop.run_in_executor(_executor, _maintenance_task)
+        logger.info(f"Proxima revision de cache en {REFRESH_INTERVAL // 3600}h")
+        await asyncio.sleep(REFRESH_INTERVAL)
 
 
 @asynccontextmanager
@@ -45,10 +55,9 @@ async def lifespan(app: FastAPI):
     logger.info(f"Cache:  {CACHE_PATH}")
     if not PLANOS_PATH.exists():
         logger.warning(f"ADVERTENCIA: la ruta de planos no existe: {PLANOS_PATH}")
-    else:
-        loop = asyncio.get_event_loop()
-        loop.run_in_executor(_executor, _startup_task)
+    task = asyncio.create_task(_maintenance_loop())
     yield
+    task.cancel()
     _executor.shutdown(wait=False)
 
 
