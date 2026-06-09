@@ -186,6 +186,24 @@ document.getElementById('btn-search-close').addEventListener('click', () => {
     searchPanel.classList.add('hidden');
 });
 
+document.getElementById('btn-do-search').addEventListener('click', doSearch);
+
+const btnClearInput = document.getElementById('btn-clear-input');
+
+searchInput.addEventListener('input', () => {
+    btnClearInput.classList.toggle('hidden', !searchInput.value);
+});
+
+btnClearInput.addEventListener('click', () => {
+    searchInput.value = '';
+    btnClearInput.classList.add('hidden');
+    searchResults.innerHTML = '';
+    searchEmpty.classList.add('hidden');
+    _activeSearchItem = null;
+    if (_searchAbort) { _searchAbort.abort(); _searchAbort = null; }
+    searchInput.focus();
+});
+
 searchInput.addEventListener('keydown', e => {
     if (e.key === 'Enter') doSearch();
 });
