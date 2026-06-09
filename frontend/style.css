@@ -59,12 +59,15 @@ html, body {
 }
 
 #app-version {
-    font-size: 11px;
+    position: absolute;
+    bottom: 4px;
+    right: 8px;
+    font-size: 10px;
     font-weight: 400;
     color: var(--muted);
-    margin-left: 8px;
-    opacity: 0.65;
-    letter-spacing: 0;
+    opacity: 0.5;
+    pointer-events: none;
+    user-select: none;
 }
 
 #file-tree {
