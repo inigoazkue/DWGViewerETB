@@ -1,5 +1,7 @@
 # Planoen Bistaratzailea — DWG Plan Viewer
 
+**v2.0.0**
+
 Web-based viewer for AutoCAD installation plans. Designed for operators to consult DWG plans from a touchscreen terminal in the rack room, with read-only access to plans stored on a remote Linux server via SMB.
 
 ---
@@ -15,7 +17,7 @@ Web-based viewer for AutoCAD installation plans. Designed for operators to consu
   ├── app.py               ← FastAPI: API + serves frontend
   ├── converter.py         ← DWG→DXF (LibreDWG) + DXF→SVG (ezdxf)
   ├── file_browser.py      ← folder tree builder
-  ├── cache/               ← disk-cached SVGs
+  ├── cache/               ← disk-cached SVGs and DXFs
   └── frontend/            ← pure HTML + CSS + JS, no build step
 ```
 
@@ -32,6 +34,7 @@ SVGs are cached in `cache/` mirroring the folder structure. If the source DWG ch
 - SVG rendering of AutoCAD DWG/DXF plans with full layer visibility
 - Smooth GPU-accelerated pan and zoom (mouse wheel + pinch-to-zoom + drag)
 - Vector-quality rendering at rest (no pixelation)
+- **Text search**: find cable numbers and labels within the loaded plan; click a result to navigate directly to it in the drawing
 - Automatic SVG pre-generation on startup for first-level plans
 - Automatic cleanup of orphaned SVG cache files
 - Periodic background maintenance (configurable interval)
@@ -196,16 +199,28 @@ sudo systemctl restart dwgviewer
 |---|---|
 | `GET /api/tree` | Full folder/file tree as JSON |
 | `GET /api/svg?path=rel/path.dwg` | SVG of the plan (converts and caches if needed) |
+| `GET /api/search?path=rel/path.dwg&q=query` | Search text in DXF entities; returns `[{text, x, y, nx, ny}]` |
 | `GET /` | Frontend (index.html) |
 
-The `path` parameter in `/api/svg` is relative to `planos_path`. Path traversal is blocked via `resolve()` + `relative_to()`.
+All `path` parameters are relative to `planos_path`. Path traversal is blocked via `resolve()` + `relative_to()`.
+
+### Search response format
+
+```json
+[
+  { "text": "049201", "x": 156.5, "y": 405.8, "nx": 0.312, "ny": 0.671 }
+]
+```
+
+- `x`, `y`: DXF model space coordinates (mm)
+- `nx`, `ny`: normalised 0–1 fractions relative to `$EXTMIN`/`$EXTMAX` — used by the frontend to navigate without knowing the drawing units
 
 ---
 
 ## Cache behaviour
 
-- SVGs are stored in `cache/` mirroring the source folder structure
-- On each request, the source file mtime is compared to the cached SVG mtime — if the source is newer, the SVG is regenerated
+- SVGs and DXFs are stored in `cache/` mirroring the source folder structure
+- On each request, the source file mtime is compared to the cached file mtime — if the source is newer, the cache is regenerated
 - On server startup: orphaned SVGs (source DWG deleted) are removed, and SVGs for first-level plans are pre-generated in the background
 - Every `refresh_interval_hours` hours: the same maintenance cycle runs automatically
 

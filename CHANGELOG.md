@@ -4,6 +4,46 @@ All notable changes to Planoen Bistaratzailea are documented here.
 
 ---
 
+## [v2.0.0] — 2026-06-09
+
+### Added
+
+**Text search**
+- `/api/search?path=&q=` endpoint: searches TEXT, MTEXT and ATTRIB entities in the DXF source
+- Backend search via `ezdxf.recover.readfile()` — tolerant of malformed DXF output from LibreDWG (`Invalid ATTRIB.keep_duplicate_records`)
+- ATTRIB entities accessed as sub-entities of INSERT (`e.attribs`), not iterated from block definitions
+- Recursive block traversal with depth limit (8) to find text inside nested blocks
+- Coordinate normalisation using `$EXTMIN`/`$EXTMAX` from the DXF header → 0–1 fractions independent of unit system
+- DXF cache alongside SVG cache (`_get_dxf_path`) — avoids re-converting on every search request
+- Duplicate suppression: same (text, x, y) tuple only reported once
+
+**Search UI**
+- Magnifying glass toolbar button opens/closes the search panel
+- Search panel overlays the viewer (top-right, `position: absolute`) — does not resize the plan
+- Search fires on Enter keypress or click on the new in-bar magnifying glass button
+- Small × button inside the input clears the text without closing the panel
+- Results list with term highlighted in accent colour; click navigates to the element
+- Single active result highlighted at a time (`_activeSearchItem` module-scoped)
+- In-flight request cancellation via `AbortController` — prevents duplicate results from concurrent async calls
+- Basque-language status messages: "Bilatzen…", "Ez da emaitzarik aurkitu", "Ireki plano bat lehenengo"
+
+**Navigation**
+- `navigateToDxf(nx, ny)`: centres the found element and zooms to show 3% of the drawing width — consistent zoom regardless of drawing size
+- Y-axis inversion: `pxY = (1 − ny) × svgH` (ezdxf SVGBackend flips DXF Y-up to SVG Y-down)
+
+### Fixed
+
+- ATTRIB position was reported at the parent INSERT origin; now uses the ATTRIB's own `dxf.insert` coordinates
+- Search was re-triggering on every keystroke (changed to Enter-only + explicit button)
+- Multiple concurrent `doSearch()` calls accumulated results; AbortController ensures only the latest response is shown
+
+### Changed
+
+- Version number shown discretely next to "Planoak" in the sidebar header
+- `_fitScale` removed (no longer needed after fixed-fraction navigation zoom)
+
+---
+
 ## [v1.0.0] — 2026-06-08
 
 ### Added
