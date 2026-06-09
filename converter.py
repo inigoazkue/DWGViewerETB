@@ -129,6 +129,69 @@ def _find_oda() -> list:
     return [p for p in candidates if Path(p).exists()]
 
 
+def search_text(file_path: Path, query: str, cache_dir: Path, base_path: Path) -> list:
+    """Busca texto en entidades TEXT/MTEXT del DXF. Devuelve [{text, x, y}]."""
+    import ezdxf
+    from ezdxf import recover
+
+    suffix = file_path.suffix.lower()
+    if suffix == '.dwg':
+        dxf_path = _dwg_to_dxf(file_path)
+    elif suffix == '.dxf':
+        dxf_path = file_path
+    else:
+        return []
+
+    try:
+        doc = ezdxf.readfile(str(dxf_path))
+    except Exception:
+        try:
+            doc, _ = recover.readfile(str(dxf_path))
+        except Exception as e:
+            raise RuntimeError(f"No se puede leer el DXF: {e}")
+
+    q = query.lower()
+    results = []
+    seen = set()
+
+    def _collect(entities, dx=0.0, dy=0.0):
+        for e in entities:
+            try:
+                t = e.dxftype()
+                text = None
+                ex, ey = dx, dy
+                if t == 'TEXT':
+                    text = e.dxf.text
+                    ex = dx + e.dxf.insert.x
+                    ey = dy + e.dxf.insert.y
+                elif t == 'MTEXT':
+                    try:
+                        text = e.plain_mtext()
+                    except Exception:
+                        text = e.dxf.get('text', '')
+                    ex = dx + e.dxf.insert.x
+                    ey = dy + e.dxf.insert.y
+                elif t in ('ATTRIB', 'ATTDEF'):
+                    text = e.dxf.text
+                    ex = dx + e.dxf.insert.x
+                    ey = dy + e.dxf.insert.y
+                elif t == 'INSERT':
+                    block = doc.blocks.get(e.dxf.name)
+                    if block:
+                        _collect(block, dx + e.dxf.insert.x, dy + e.dxf.insert.y)
+                if text and q in text.lower():
+                    key = (text.strip(), round(ex, 1), round(ey, 1))
+                    if key not in seen:
+                        seen.add(key)
+                        results.append({'text': text.strip(), 'x': ex, 'y': ey})
+            except Exception:
+                continue
+
+    _collect(doc.modelspace())
+    logger.info(f"Busqueda '{query}' en {file_path.name}: {len(results)} resultados")
+    return results
+
+
 def _dxf_to_svg(dxf_path: Path) -> str:
     import ezdxf
     from ezdxf import recover

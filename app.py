@@ -96,4 +96,26 @@ def get_svg(path: str = Query(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/search")
+def search_svg(path: str = Query(...), q: str = Query(...)):
+    if not path or not path.strip():
+        raise HTTPException(status_code=400, detail="Ruta vacía")
+    if not q or not q.strip():
+        return []
+    try:
+        target = (PLANOS_PATH / path).resolve()
+        target.relative_to(PLANOS_PATH)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Ruta no permitida")
+    if not target.exists():
+        raise HTTPException(status_code=404, detail="Archivo no encontrado")
+    if target.suffix.lower() not in ('.dwg', '.dxf'):
+        raise HTTPException(status_code=400, detail="Formato no soportado")
+    try:
+        return converter.search_text(target, q.strip(), CACHE_PATH, PLANOS_PATH)
+    except Exception as e:
+        logger.error(f"Error buscando en {target.name}: {e}")
+        raise HTTPException(status_code=500, detail=str(e))
+
+
 app.mount("/", StaticFiles(directory=str(ROOT / "frontend"), html=True), name="static")

@@ -170,97 +170,108 @@ const searchInput   = document.getElementById('search-input');
 const searchResults = document.getElementById('search-results');
 const searchEmpty   = document.getElementById('search-empty');
 
+let _currentSearchPath = null;
+
 document.getElementById('btn-search').addEventListener('click', () => {
     const nowHidden = searchPanel.classList.toggle('hidden');
     if (!nowHidden) {
         searchInput.focus();
         doSearch();
-    } else {
-        clearHighlights();
     }
 });
 
 document.getElementById('btn-search-close').addEventListener('click', () => {
     searchPanel.classList.add('hidden');
-    clearHighlights();
 });
 
 let _searchTimer = null;
 searchInput.addEventListener('input', () => {
     clearTimeout(_searchTimer);
-    _searchTimer = setTimeout(doSearch, 180);
+    _searchTimer = setTimeout(doSearch, 300);
 });
 
 function escapeHtml(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-function clearHighlights() {
-    wrapper()?.querySelector('svg')?.querySelectorAll('text.sh')
-        .forEach(el => el.classList.remove('sh'));
-}
+// Navega al punto DXF (dxfX, dxfY) usando el viewBox del SVG.
+// ezdxf SVGBackend invierte el eje Y: svg_y = -dxf_y
+// Por tanto viewBox.y ≈ -max_dxf_y (negativo)
+function navigateToDxf(dxfX, dxfY) {
+    const svg = wrapper()?.querySelector('svg');
+    if (!svg) return;
+    const vb = svg.viewBox.baseVal;
+    if (!vb || vb.width === 0) return;
 
-function navigateTo(el) {
-    const vr  = viewer.getBoundingClientRect();
-    const er  = el.getBoundingClientRect();
-    const cx  = er.left + er.width  / 2 - vr.left;
-    const cy  = er.top  + er.height / 2 - vr.top;
-    tx += viewer.clientWidth  / 2 - cx;
-    ty += viewer.clientHeight / 2 - cy;
+    const svgCoordX = dxfX;
+    const svgCoordY = -dxfY;                              // eje Y invertido
+
+    const pxX = (svgCoordX - vb.x) / vb.width  * svgW;
+    const pxY = (svgCoordY - vb.y) / vb.height * svgH;
+
+    tx = viewer.clientWidth  / 2 - pxX * scale;
+    ty = viewer.clientHeight / 2 - pxY * scale;
     applyTransform();
     activateGPU();
 }
 
-function doSearch() {
+async function doSearch() {
     const query = searchInput.value.trim();
     searchResults.innerHTML = '';
     searchEmpty.classList.add('hidden');
-    clearHighlights();
 
-    if (!query) return;
-
-    const svg = wrapper()?.querySelector('svg');
-    if (!svg) {
-        searchEmpty.textContent = 'Ez dago planorik kargatuta';
-        searchEmpty.classList.remove('hidden');
-        return;
-    }
-
-    const q = query.toLowerCase();
-    const matches = [];
-
-    svg.querySelectorAll('text').forEach(el => {
-        const text = el.textContent.trim();
-        if (text && text.toLowerCase().includes(q)) {
-            matches.push({ el, text });
-            el.classList.add('sh');
+    if (!query || !_currentSearchPath) {
+        if (!_currentSearchPath) {
+            searchEmpty.textContent = 'Ireki plano bat lehenengo';
+            searchEmpty.classList.remove('hidden');
         }
-    });
-
-    if (!matches.length) {
-        searchEmpty.textContent = 'Ez da emaitzarik aurkitu';
-        searchEmpty.classList.remove('hidden');
         return;
     }
 
-    let activeItem = null;
+    searchEmpty.textContent = 'Bilatzen…';
+    searchEmpty.classList.remove('hidden');
 
-    matches.forEach(({ el, text }) => {
-        const item = document.createElement('div');
-        item.className = 'search-item';
-        const idx = text.toLowerCase().indexOf(q);
-        item.innerHTML =
-            escapeHtml(text.slice(0, idx)) +
-            '<mark>' + escapeHtml(text.slice(idx, idx + query.length)) + '</mark>' +
-            escapeHtml(text.slice(idx + query.length));
-        item.addEventListener('click', () => {
-            if (activeItem) activeItem.classList.remove('active');
-            item.classList.add('active');
-            activeItem = item;
-            navigateTo(el);
+    try {
+        const resp = await fetch(
+            '/api/search?path=' + encodeURIComponent(_currentSearchPath) +
+            '&q=' + encodeURIComponent(query)
+        );
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const matches = await resp.json();
+
+        searchEmpty.classList.add('hidden');
+
+        if (!matches.length) {
+            searchEmpty.textContent = 'Ez da emaitzarik aurkitu';
+            searchEmpty.classList.remove('hidden');
+            return;
+        }
+
+        let activeItem = null;
+        matches.forEach(({ text, x, y }) => {
+            const item = document.createElement('div');
+            item.className = 'search-item';
+            const idx = text.toLowerCase().indexOf(query.toLowerCase());
+            if (idx >= 0) {
+                item.innerHTML =
+                    escapeHtml(text.slice(0, idx)) +
+                    '<mark>' + escapeHtml(text.slice(idx, idx + query.length)) + '</mark>' +
+                    escapeHtml(text.slice(idx + query.length));
+            } else {
+                item.textContent = text;
+            }
+            item.addEventListener('click', () => {
+                if (activeItem) activeItem.classList.remove('active');
+                item.classList.add('active');
+                activeItem = item;
+                navigateToDxf(x, y);
+            });
+            searchResults.appendChild(item);
         });
-        searchResults.appendChild(item);
-    });
+    } catch (e) {
+        searchEmpty.textContent = 'Errorea bilaketan: ' + e.message;
+        searchEmpty.classList.remove('hidden');
+    }
 }
 
 // ── File loading ──────────────────────────────────────────────────────────────
@@ -271,6 +282,7 @@ const elErrorMsg    = document.getElementById('error-msg');
 const elCurrentFile = document.getElementById('current-file');
 
 async function openFile(path, name) {
+    _currentSearchPath = path;
     document.querySelectorAll('.tree-file.active').forEach(el => el.classList.remove('active'));
     const treeEl = document.querySelector(`.tree-file[data-path="${CSS.escape(path)}"]`);
     if (treeEl) treeEl.classList.add('active');
@@ -316,7 +328,7 @@ async function openFile(path, name) {
 
         viewer.appendChild(div);
         fitToScreen();
-        if (!searchPanel.classList.contains('hidden') && searchInput.value.trim()) doSearch();
+        if (!searchPanel.classList.contains('hidden') && searchInput.value.trim()) await doSearch();
     } catch (err) {
         elErrorMsg.textContent = 'Error: ' + err.message;
         elError.classList.remove('hidden');

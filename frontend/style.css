@@ -270,9 +270,6 @@ button:active { background: #3166b0; border-color: #3166b0; }
     text-align: center;
 }
 
-/* SVG text highlight */
-svg text.sh { fill: #ffdd00 !important; }
-
 /* ── Viewer ── */
 #viewer {
     flex: 1;
