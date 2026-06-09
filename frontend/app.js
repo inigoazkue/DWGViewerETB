@@ -356,6 +356,25 @@ async function openFile(path, name) {
 }
 
 // ── File tree ─────────────────────────────────────────────────────────────────
+function startLoad(details) {
+    if (details.dataset.loaded === 'true') return Promise.resolve();
+    if (details._loadPromise) return details._loadPromise;
+    const folderPath = details.dataset.path;
+    const sub = details.querySelector('.tree-children');
+    sub.innerHTML = '<div class="tree-loading">…</div>';
+    details._loadPromise = fetch('/api/tree?path=' + encodeURIComponent(folderPath))
+        .then(r => { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+        .then(data => {
+            sub.innerHTML = '';
+            (data.children || []).forEach(c => renderNode(c, sub, false));
+        })
+        .catch(e => {
+            sub.innerHTML = `<div style="padding:8px 16px;color:#c44;font-size:12px">Errorea: ${e.message}</div>`;
+        })
+        .finally(() => { details.dataset.loaded = 'true'; });
+    return details._loadPromise;
+}
+
 function renderNode(node, container, isRoot) {
     if (node.type === 'dir') {
         if (isRoot) {
@@ -368,8 +387,17 @@ function renderNode(node, container, isRoot) {
         details.appendChild(summary);
         const sub = document.createElement('div');
         sub.className = 'tree-children';
-        (node.children || []).forEach(c => renderNode(c, sub, false));
         details.appendChild(sub);
+
+        if (node.lazy) {
+            details.dataset.path = node.path;
+            details.dataset.loaded = 'false';
+            details.addEventListener('toggle', () => { if (details.open) startLoad(details); });
+        } else {
+            details.dataset.loaded = 'true';
+            (node.children || []).forEach(c => renderNode(c, sub, false));
+        }
+
         container.appendChild(details);
     } else if (node.type === 'file') {
         const el = document.createElement('div');
@@ -449,6 +477,23 @@ async function doTreeSearch() {
 
         treeSearchStatus.textContent = results.length + (results.length === 1 ? ' plano' : ' plano');
 
+        // Recopilar todas las carpetas padre que necesitan estar cargadas
+        const folderPaths = new Set();
+        results.forEach(({ path }) => {
+            const parts = path.split('/');
+            for (let i = 1; i < parts.length; i++) {
+                folderPaths.add(parts.slice(0, i).join('/'));
+            }
+        });
+        // Cargar de menos profundo a más para que las <details> anidadas estén en el DOM
+        const sortedFolders = [...folderPaths].sort((a, b) => a.split('/').length - b.split('/').length);
+        for (const fp of sortedFolders) {
+            const det = fileTree.querySelector(`details[data-path="${CSS.escape(fp)}"]`);
+            if (!det) continue;
+            det.open = true;
+            await startLoad(det);
+        }
+
         let first = true;
         results.forEach(({ path, count }) => {
             const el = fileTree.querySelector(`.tree-file[data-path="${CSS.escape(path)}"]`);
@@ -458,12 +503,6 @@ async function doTreeSearch() {
             badge.className = 'match-badge';
             badge.textContent = count;
             el.appendChild(badge);
-            // Abrir todas las carpetas padre
-            let parent = el.parentElement;
-            while (parent && parent !== fileTree) {
-                if (parent.tagName === 'DETAILS') parent.open = true;
-                parent = parent.parentElement;
-            }
             if (first) {
                 el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
                 first = false;

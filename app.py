@@ -118,8 +118,16 @@ app = FastAPI(title="Planoen Bistaratzailea", lifespan=lifespan)
 
 
 @app.get("/api/tree")
-def get_tree():
-    return file_browser.build_tree(PLANOS_PATH)
+def get_tree(path: str = Query(default='')):
+    if path:
+        try:
+            target = (PLANOS_PATH / path).resolve()
+            target.relative_to(PLANOS_PATH)
+        except ValueError:
+            raise HTTPException(status_code=403, detail="Ruta no permitida")
+        if not target.is_dir():
+            raise HTTPException(status_code=404, detail="Carpeta no encontrada")
+    return file_browser.build_tree_shallow(PLANOS_PATH, path)
 
 
 @app.get("/api/svg")

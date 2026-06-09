@@ -227,6 +227,13 @@ details > summary:active { background: var(--active); }
 
 .tree-children { padding-left: 16px; }
 
+.tree-loading {
+    padding: 8px 16px;
+    font-size: 12px;
+    color: var(--muted);
+    opacity: 0.6;
+}
+
 /* ── Tree: files ── */
 .tree-file {
     padding: 12px 16px 12px 30px;
