@@ -104,7 +104,7 @@ Lo que hace el script:
 Añadir a `/etc/fstab`:
 
 ```
-//10.114.150.102/dwg/_planos_MIRAMON /mnt/Planoak_MIR cifs credentials=/etc/smb-creds,uid=ingprod,_netdev 0 0
+//10.114.150.102/dwg/_planos_MIRAMON /mnt/Planoak_MIR cifs credentials=/etc/smb-creds,uid=ingprod,ro,_netdev 0 0
 ```
 
 Crear el archivo de credenciales:

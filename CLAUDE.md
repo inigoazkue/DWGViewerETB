@@ -109,7 +109,7 @@ cd /srv/SW
 git clone https://github.com/inigoazkue/DWGViewerETB.git DWGViewerETB
 
 # 2. Montar SMB en /etc/fstab:
-#    //10.114.150.102/dwg/_planos_MIRAMON /mnt/Planoak_MIR cifs credentials=/etc/smb-creds,uid=ingprod,_netdev 0 0
+#    //10.114.150.102/dwg/_planos_MIRAMON /mnt/Planoak_MIR cifs credentials=/etc/smb-creds,uid=ingprod,ro,_netdev 0 0
 
 # 3. Crear config local:
 echo '{"planos_path": "/mnt/Planoak_MIR"}' > /srv/SW/DWGViewerETB/config.local.json
