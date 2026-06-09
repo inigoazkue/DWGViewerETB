@@ -129,26 +129,31 @@ def _find_oda() -> list:
     return [p for p in candidates if Path(p).exists()]
 
 
+def _get_dxf_path(file_path: Path, cache_dir: Path, base_path: Path) -> Path:
+    """Devuelve el DXF correspondiente al archivo, cacheándolo si es DWG."""
+    if file_path.suffix.lower() == '.dxf':
+        return file_path
+    rel = file_path.relative_to(base_path)
+    dxf_cache = cache_dir / rel.with_suffix('.dxf')
+    if dxf_cache.exists() and dxf_cache.stat().st_mtime >= file_path.stat().st_mtime:
+        return dxf_cache
+    dxf_tmp = _dwg_to_dxf(file_path)
+    dxf_cache.parent.mkdir(parents=True, exist_ok=True)
+    dxf_cache.write_bytes(dxf_tmp.read_bytes())
+    return dxf_cache
+
+
 def search_text(file_path: Path, query: str, cache_dir: Path, base_path: Path) -> list:
     """Busca texto en entidades TEXT/MTEXT/ATTRIB del DXF. Devuelve [{text, x, y}]."""
-    import ezdxf
     from ezdxf import recover
 
-    suffix = file_path.suffix.lower()
-    if suffix == '.dwg':
-        dxf_path = _dwg_to_dxf(file_path)
-    elif suffix == '.dxf':
-        dxf_path = file_path
-    else:
-        return []
+    dxf_path = _get_dxf_path(file_path, cache_dir, base_path)
 
+    # recover.readfile es tolerante con DXFs malformados (ej: libredwg ATTRIB errors)
     try:
-        doc = ezdxf.readfile(str(dxf_path))
-    except Exception:
-        try:
-            doc, _ = recover.readfile(str(dxf_path))
-        except Exception as e:
-            raise RuntimeError(f"No se puede leer el DXF: {e}")
+        doc, auditor = recover.readfile(str(dxf_path))
+    except Exception as e:
+        raise RuntimeError(f"No se puede leer el DXF: {e}")
 
     q = query.lower()
     results = []
@@ -200,6 +205,10 @@ def search_text(file_path: Path, query: str, cache_dir: Path, base_path: Path) -
 
     collect(doc.modelspace())
     logger.info(f"Busqueda '{query}' en {file_path.name}: {len(results)} resultados")
+    if not results:
+        from collections import Counter
+        counts = Counter(e.dxftype() for e in doc.modelspace())
+        logger.info(f"Tipos de entidad en modelspace: {dict(counts)}")
     return results
 
 
