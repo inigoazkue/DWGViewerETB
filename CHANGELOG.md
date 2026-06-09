@@ -4,6 +4,14 @@ Todos los cambios relevantes de Planoen Bistaratzailea se documentan aquí.
 
 ---
 
+## [v2.0.1] — 2026-06-09
+
+### Cambiado
+
+- Versión movida a la esquina inferior derecha del encabezado del sidebar (junto a "Planoak")
+
+---
+
 ## [v2.0.0] — 2026-06-09
 
 ### Añadido
