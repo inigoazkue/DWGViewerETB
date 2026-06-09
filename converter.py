@@ -188,12 +188,14 @@ def search_text(file_path: Path, query: str, cache_dir: Path, base_path: Path) -
                 elif t == 'INSERT':
                     ix = ox + e.dxf.insert.x
                     iy = oy + e.dxf.insert.y
-                    # ATTRIBs son sub-entidades del INSERT, no del bloque
+                    # ATTRIBs: posicion propia del atributo, no el origen del INSERT
                     for attrib in e.attribs:
                         try:
                             text = attrib.dxf.get('text', '')
                             if q in text.lower():
-                                add(text, ix, iy)
+                                ax = ox + attrib.dxf.insert.x
+                                ay = oy + attrib.dxf.insert.y
+                                add(text, ax, ay)
                         except Exception:
                             pass
                     # Recursar en el bloque referenciado
