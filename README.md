@@ -1,65 +1,65 @@
-# Planoen Bistaratzailea — DWG Plan Viewer
+# Planoen Bistaratzailea — Visor de planos DWG
 
 **v2.0.0**
 
-Web-based viewer for AutoCAD installation plans. Designed for operators to consult DWG plans from a touchscreen terminal in the rack room, with read-only access to plans stored on a remote Linux server via SMB.
+Visor web de planos AutoCAD para uso interno. Diseñado para que los operadores consulten planos de instalación DWG desde una terminal táctil en la sala de racks, con acceso de solo lectura a los planos almacenados en un servidor Linux remoto vía SMB.
 
 ---
 
-## Architecture
+## Arquitectura
 
 ```
-[Remote Linux server with DWG plans]
+[Servidor Linux remoto con planos DWG]
         │  SMB (CIFS)
         ▼
-[Ubuntu 26.04 LTS — this server]
-  ├── /mnt/Planoak_MIR     ← SMB mount point
-  ├── app.py               ← FastAPI: API + serves frontend
+[Ubuntu 26.04 LTS — este servidor]
+  ├── /mnt/Planoak_MIR     ← punto de montaje SMB
+  ├── app.py               ← FastAPI: API + sirve el frontend
   ├── converter.py         ← DWG→DXF (LibreDWG) + DXF→SVG (ezdxf)
-  ├── file_browser.py      ← folder tree builder
-  ├── cache/               ← disk-cached SVGs and DXFs
-  └── frontend/            ← pure HTML + CSS + JS, no build step
+  ├── file_browser.py      ← constructor del árbol de carpetas
+  ├── cache/               ← SVGs y DXFs cacheados en disco
+  └── frontend/            ← HTML + CSS + JS puro, sin paso de build
 ```
 
-**Conversion pipeline:**
-`file.dwg` → `dwg2dxf` (LibreDWG) → `file.dxf` → ezdxf → `file.svg` → browser
+**Pipeline de conversión:**
+`archivo.dwg` → `dwg2dxf` (LibreDWG) → `archivo.dxf` → ezdxf → `archivo.svg` → navegador
 
-SVGs are cached in `cache/` mirroring the folder structure. If the source DWG changes (newer mtime), the SVG is automatically regenerated on next access.
-
----
-
-## Features
-
-- Folder tree sidebar with collapsible directories
-- SVG rendering of AutoCAD DWG/DXF plans with full layer visibility
-- Smooth GPU-accelerated pan and zoom (mouse wheel + pinch-to-zoom + drag)
-- Vector-quality rendering at rest (no pixelation)
-- **Text search**: find cable numbers and labels within the loaded plan; click a result to navigate directly to it in the drawing
-- Automatic SVG pre-generation on startup for first-level plans
-- Automatic cleanup of orphaned SVG cache files
-- Periodic background maintenance (configurable interval)
-- No login required — open LAN access
-- No JavaScript frameworks, no CDN dependencies, works fully offline
+Los SVGs se cachean en `cache/` replicando la estructura de carpetas. Si el DWG fuente cambia (mtime más reciente), el SVG se regenera automáticamente en el siguiente acceso.
 
 ---
 
-## Requirements
+## Funcionalidades
 
-| Component | Version |
+- Árbol de carpetas en sidebar con directorios colapsables
+- Renderizado SVG de planos AutoCAD DWG/DXF con visibilidad completa de capas
+- Paneo y zoom fluidos con aceleración GPU (rueda del ratón + pinch-to-zoom + arrastre)
+- Renderizado vectorial de calidad en reposo (sin pixelado)
+- **Búsqueda de texto**: localiza números de cable y etiquetas dentro del plano cargado; al hacer click en un resultado navega directamente a él en el dibujo
+- Pre-generación automática de SVGs al arranque para los planos del primer nivel
+- Limpieza automática de archivos SVG huérfanos en caché
+- Mantenimiento periódico en segundo plano (intervalo configurable)
+- Sin login — acceso abierto en LAN
+- Sin frameworks JavaScript, sin dependencias CDN, funciona completamente sin conexión
+
+---
+
+## Requisitos
+
+| Componente | Versión |
 |---|---|
 | Ubuntu | 26.04 LTS |
 | Python | 3.12+ |
-| LibreDWG | latest (compiled from source on Ubuntu 26.04) |
+| LibreDWG | última (compilada desde fuente en Ubuntu 26.04) |
 | ezdxf | 1.3.4 |
 | FastAPI | 0.115.5 |
 | uvicorn | 0.32.1 |
-| Pillow | latest |
+| Pillow | última |
 
 ---
 
-## Installation on Ubuntu 26.04
+## Instalación en Ubuntu 26.04
 
-### 1. Clone the repository
+### 1. Clonar el repositorio
 
 ```bash
 cd /srv/SW
@@ -67,31 +67,31 @@ git clone https://github.com/inigoazkue/DWGViewerETB.git DWGViewerETB
 cd DWGViewerETB
 ```
 
-### 2. Run the install script
+### 2. Ejecutar el script de instalación
 
-The script installs all dependencies, compiles LibreDWG from source (not yet packaged for Ubuntu 26.04), creates the Python virtual environment, and registers the systemd service.
+El script instala todas las dependencias, compila LibreDWG desde fuente (aún no empaquetado para Ubuntu 26.04), crea el entorno virtual Python y registra el servicio systemd.
 
 ```bash
 sudo bash install-ubuntu.sh
 ```
 
-What the script does:
-- Installs system dependencies: `python3`, `python3-venv`, `cifs-utils`, `build-essential`, `autoconf`, `automake`, `libtool`, `pkg-config`, `git`
-- Attempts `apt install libredwg-utils`; if unavailable, compiles LibreDWG from source
-- Creates Python venv at `venv/` and installs `requirements.txt`
-- Creates `cache/` directory
-- Registers and starts the `dwgviewer` systemd service
+Lo que hace el script:
+- Instala dependencias del sistema: `python3`, `python3-venv`, `cifs-utils`, `build-essential`, `autoconf`, `automake`, `libtool`, `pkg-config`, `git`
+- Intenta `apt install libredwg-utils`; si no está disponible, compila LibreDWG desde fuente
+- Crea el venv Python en `venv/` e instala `requirements.txt`
+- Crea el directorio `cache/`
+- Registra e inicia el servicio systemd `dwgviewer`
 
-> **Note on LibreDWG compilation:** The first compile takes ~10–15 minutes and requires at least 1 GB of RAM. If the server has less than 1 GB free RAM, create a swapfile first:
+> **Nota sobre la compilación de LibreDWG:** La primera compilación tarda entre 10 y 15 minutos y requiere al menos 1 GB de RAM libre. Si el servidor tiene menos, crea un swapfile primero:
 > ```bash
 > sudo fallocate -l 1G /swapfile
 > sudo chmod 600 /swapfile
 > sudo mkswap /swapfile
 > sudo swapon /swapfile
 > ```
-> Then compile with a single job to avoid OOM:
+> Luego compila con un solo hilo para evitar OOM:
 > ```bash
-> cd /path/to/libredwg-source
+> cd /ruta/a/libredwg-fuente
 > sh autogen.sh
 > ./configure --disable-docs --disable-tests
 > make -j1
@@ -99,15 +99,15 @@ What the script does:
 > sudo ldconfig
 > ```
 
-### 3. Mount the SMB share
+### 3. Montar el recurso SMB
 
-Add to `/etc/fstab`:
+Añadir a `/etc/fstab`:
 
 ```
 //10.114.150.102/dwg/_planos_MIRAMON /mnt/Planoak_MIR cifs credentials=/etc/smb-creds,uid=ingprod,_netdev 0 0
 ```
 
-Create the credentials file:
+Crear el archivo de credenciales:
 
 ```bash
 sudo nano /etc/smb-creds
@@ -115,7 +115,7 @@ sudo nano /etc/smb-creds
 
 ```
 username=dwg
-password=YOUR_PASSWORD
+password=TU_CONTRASEÑA
 ```
 
 ```bash
@@ -124,65 +124,65 @@ sudo mkdir -p /mnt/Planoak_MIR
 sudo mount -a
 ```
 
-### 4. Configure the plan path
+### 4. Configurar la ruta de los planos
 
-Create `config.local.json` in the project directory (this file is gitignored and never committed):
+Crear `config.local.json` en el directorio del proyecto (este archivo está gitignoreado y nunca se commitea):
 
 ```bash
 echo '{"planos_path": "/mnt/Planoak_MIR"}' > /srv/SW/DWGViewerETB/config.local.json
 ```
 
-### 5. Restart the service
+### 5. Reiniciar el servicio
 
 ```bash
 sudo systemctl restart dwgviewer
 ```
 
-The viewer will be available at `http://<server-ip>:8000`
+El visor estará disponible en `http://<ip-del-servidor>:8000`
 
 ---
 
-## Configuration
+## Configuración
 
-Settings are loaded from `config.json` (committed defaults) and overridden by `config.local.json` (local, gitignored).
+Los ajustes se cargan desde `config.json` (valores por defecto en git) y se sobreescriben con `config.local.json` (local, gitignoreado).
 
-| Key | Default | Description |
+| Clave | Por defecto | Descripción |
 |---|---|---|
-| `planos_path` | `"Planoak"` | Path to the DWG folder (relative or absolute) |
-| `cache_path` | `"cache"` | Path to the SVG cache folder |
-| `host` | `"0.0.0.0"` | Bind address |
-| `port` | `8000` | HTTP port |
-| `refresh_interval_hours` | `4` | Hours between automatic cache maintenance cycles |
+| `planos_path` | `"Planoak"` | Ruta a la carpeta de planos DWG (relativa o absoluta) |
+| `cache_path` | `"cache"` | Ruta a la carpeta de caché SVG |
+| `host` | `"0.0.0.0"` | Dirección de escucha |
+| `port` | `8000` | Puerto HTTP |
+| `refresh_interval_hours` | `4` | Horas entre ciclos automáticos de mantenimiento de caché |
 
 ---
 
-## Service management
+## Gestión del servicio
 
 ```bash
-# View logs (live)
+# Ver logs en tiempo real
 sudo journalctl -u dwgviewer -f
 
-# Restart
+# Reiniciar
 sudo systemctl restart dwgviewer
 
-# Stop / Start
+# Parar / Arrancar
 sudo systemctl stop dwgviewer
 sudo systemctl start dwgviewer
 
-# Check status
+# Ver estado
 sudo systemctl status dwgviewer
 ```
 
 ---
 
-## Updating
+## Actualizar
 
 ```bash
 git -C /srv/SW/DWGViewerETB pull
 sudo systemctl restart dwgviewer
 ```
 
-If `requirements.txt` changed:
+Si ha cambiado `requirements.txt`:
 
 ```bash
 source /srv/SW/DWGViewerETB/venv/bin/activate
@@ -195,16 +195,16 @@ sudo systemctl restart dwgviewer
 
 ## API
 
-| Endpoint | Description |
+| Endpoint | Descripción |
 |---|---|
-| `GET /api/tree` | Full folder/file tree as JSON |
-| `GET /api/svg?path=rel/path.dwg` | SVG of the plan (converts and caches if needed) |
-| `GET /api/search?path=rel/path.dwg&q=query` | Search text in DXF entities; returns `[{text, x, y, nx, ny}]` |
+| `GET /api/tree` | Árbol completo de carpetas/archivos como JSON |
+| `GET /api/svg?path=rel/ruta.dwg` | SVG del plano (convierte y cachea si es necesario) |
+| `GET /api/search?path=rel/ruta.dwg&q=texto` | Busca texto en entidades DXF; devuelve `[{text, x, y, nx, ny}]` |
 | `GET /` | Frontend (index.html) |
 
-All `path` parameters are relative to `planos_path`. Path traversal is blocked via `resolve()` + `relative_to()`.
+Todos los parámetros `path` son relativos a `planos_path`. El path traversal está bloqueado mediante `resolve()` + `relative_to()`.
 
-### Search response format
+### Formato de respuesta de `/api/search`
 
 ```json
 [
@@ -212,40 +212,40 @@ All `path` parameters are relative to `planos_path`. Path traversal is blocked v
 ]
 ```
 
-- `x`, `y`: DXF model space coordinates (mm)
-- `nx`, `ny`: normalised 0–1 fractions relative to `$EXTMIN`/`$EXTMAX` — used by the frontend to navigate without knowing the drawing units
+- `x`, `y`: coordenadas en el espacio modelo DXF (mm)
+- `nx`, `ny`: fracciones 0-1 normalizadas respecto a `$EXTMIN`/`$EXTMAX` — usadas por el frontend para navegar sin conocer las unidades del dibujo
 
 ---
 
-## Cache behaviour
+## Comportamiento de la caché
 
-- SVGs and DXFs are stored in `cache/` mirroring the source folder structure
-- On each request, the source file mtime is compared to the cached file mtime — if the source is newer, the cache is regenerated
-- On server startup: orphaned SVGs (source DWG deleted) are removed, and SVGs for first-level plans are pre-generated in the background
-- Every `refresh_interval_hours` hours: the same maintenance cycle runs automatically
+- Los SVGs y DXFs se almacenan en `cache/` replicando la estructura de carpetas fuente
+- En cada petición se compara el mtime del archivo fuente con el del archivo cacheado — si el fuente es más reciente, la caché se regenera
+- Al arrancar el servidor: se eliminan los SVGs huérfanos (DWG fuente borrado) y se pre-generan los SVGs de los planos del primer nivel en segundo plano
+- Cada `refresh_interval_hours` horas: se repite el mismo ciclo de mantenimiento automáticamente
 
 ---
 
-## Development on Windows
+## Desarrollo en Windows
 
 ```bash
 python run.py
 ```
 
-DWG→SVG conversion requires LibreDWG (Linux-only) or ODA File Converter. For Windows development:
-- Install ODA File Converter (free, opendesign.com) — auto-detected in `C:\Program Files\ODA\...`
-- Or place `.dxf` files directly in `Planoak/` to test rendering without conversion
+La conversión DWG→SVG requiere LibreDWG (solo Linux) o ODA File Converter. Para desarrollo en Windows:
+- Instalar ODA File Converter (gratuito, opendesign.com) — se detecta automáticamente en `C:\Program Files\ODA\...`
+- O colocar archivos `.dxf` directamente en `Planoak/` para probar el renderizado sin conversión
 
 ---
 
-## Folder structure
+## Estructura de carpetas
 
 ```
 Planoak/
 └── 01_E21/
-    ├── file.dwg           ← pre-generated on startup (first level)
+    ├── archivo.dwg        ← pre-generado al arranque (primer nivel)
     ├── _ZAHARRAK/
-    │   └── old.dwg        ← generated on demand (second level)
+    │   └── antiguo.dwg   ← generado bajo demanda (segundo nivel)
     └── PLATO 21/
-        └── plan.dwg       ← generated on demand (second level)
+        └── plano.dwg     ← generado bajo demanda (segundo nivel)
 ```
