@@ -171,6 +171,8 @@ const searchResults = document.getElementById('search-results');
 const searchEmpty   = document.getElementById('search-empty');
 
 let _currentSearchPath = null;
+let _activeSearchItem = null;
+let _searchAbort = null;
 
 document.getElementById('btn-search').addEventListener('click', () => {
     const nowHidden = searchPanel.classList.toggle('hidden');
@@ -208,6 +210,12 @@ async function doSearch() {
     const query = searchInput.value.trim();
     searchResults.innerHTML = '';
     searchEmpty.classList.add('hidden');
+    _activeSearchItem = null;
+
+    // Cancelar busqueda anterior en vuelo
+    if (_searchAbort) _searchAbort.abort();
+    _searchAbort = new AbortController();
+    const signal = _searchAbort.signal;
 
     if (!query || !_currentSearchPath) {
         if (!_currentSearchPath) {
@@ -223,7 +231,8 @@ async function doSearch() {
     try {
         const resp = await fetch(
             '/api/search?path=' + encodeURIComponent(_currentSearchPath) +
-            '&q=' + encodeURIComponent(query)
+            '&q=' + encodeURIComponent(query),
+            { signal }
         );
         if (!resp.ok) throw new Error('HTTP ' + resp.status);
         const matches = await resp.json();
@@ -236,7 +245,6 @@ async function doSearch() {
             return;
         }
 
-        let activeItem = null;
         matches.forEach(({ text, x, y, nx, ny }) => {
             const item = document.createElement('div');
             item.className = 'search-item';
@@ -250,9 +258,9 @@ async function doSearch() {
                 item.textContent = text;
             }
             item.addEventListener('click', () => {
-                if (activeItem) activeItem.classList.remove('active');
+                if (_activeSearchItem) _activeSearchItem.classList.remove('active');
                 item.classList.add('active');
-                activeItem = item;
+                _activeSearchItem = item;
                 if (nx != null && ny != null) {
                     navigateToDxf(nx, ny);
                 }
@@ -260,6 +268,7 @@ async function doSearch() {
             searchResults.appendChild(item);
         });
     } catch (e) {
+        if (e.name === 'AbortError') return;
         searchEmpty.textContent = 'Errorea bilaketan: ' + e.message;
         searchEmpty.classList.remove('hidden');
     }
