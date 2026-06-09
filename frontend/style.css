@@ -71,6 +71,70 @@ html, body {
     user-select: none;
 }
 
+/* ── Tree search ── */
+#tree-search-bar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+#tree-search-wrap {
+    position: relative;
+    flex: 1;
+    min-width: 0;
+}
+
+#tree-search-input {
+    width: 100%;
+    background: var(--darker);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    color: var(--text);
+    font-size: 13px;
+    padding: 7px 26px 7px 10px;
+    outline: none;
+}
+#tree-search-input:focus            { border-color: var(--accent); }
+#tree-search-input::placeholder     { color: var(--muted); }
+#tree-search-input::-webkit-search-cancel-button { display: none; }
+
+#btn-tree-clear {
+    position: absolute;
+    right: 5px;
+    top: 50%;
+    transform: translateY(-50%);
+    min-width: 16px;
+    min-height: 16px;
+    width: 16px;
+    height: 16px;
+    padding: 0;
+    font-size: 9px;
+    border-radius: 50%;
+    background: var(--muted);
+    border: none;
+    color: var(--darker);
+}
+#btn-tree-clear:hover { background: var(--accent); border-color: transparent; }
+
+#btn-tree-search {
+    min-width: 32px;
+    min-height: 32px;
+    padding: 0;
+    border-radius: 6px;
+    flex-shrink: 0;
+}
+
+#tree-search-status {
+    padding: 6px 14px;
+    font-size: 12px;
+    color: var(--muted);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
 #file-tree {
     flex: 1;
     overflow-y: auto;
@@ -120,10 +184,17 @@ details > summary:active { background: var(--active); }
     cursor: pointer;
     color: var(--text);
     border-left: 2px solid transparent;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: background 0.1s, opacity 0.15s;
+}
+
+.tree-file .file-name {
+    flex: 1;
     white-space: nowrap;
     overflow: hidden;
     text-overflow: ellipsis;
-    transition: background 0.1s;
 }
 
 .tree-file:hover  { background: var(--hover); }
@@ -133,6 +204,27 @@ details > summary:active { background: var(--active); }
     background: var(--active);
     border-left-color: var(--accent);
     color: #fff;
+}
+
+.tree-file.search-match {
+    border-left-color: var(--accent);
+    background: rgba(0, 159, 220, 0.1);
+    color: #fff;
+}
+
+.match-badge {
+    font-size: 10px;
+    font-weight: 700;
+    background: var(--accent);
+    color: var(--darker);
+    border-radius: 10px;
+    padding: 1px 6px;
+    flex-shrink: 0;
+    line-height: 1.5;
+}
+
+.tree-search-active .tree-file:not(.search-match) {
+    opacity: 0.25;
 }
 
 /* ── Content ── */

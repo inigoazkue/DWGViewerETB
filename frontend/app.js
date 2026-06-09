@@ -374,11 +374,103 @@ function renderNode(node, container, isRoot) {
     } else if (node.type === 'file') {
         const el = document.createElement('div');
         el.className = 'tree-file';
-        el.textContent = node.name.replace(/\.(dwg|dxf)$/i, '');
         el.title = node.name;
         el.dataset.path = node.path;
+        const nameSpan = document.createElement('span');
+        nameSpan.className = 'file-name';
+        nameSpan.textContent = node.name.replace(/\.(dwg|dxf)$/i, '');
+        el.appendChild(nameSpan);
         el.addEventListener('click', () => openFile(node.path, node.name));
         container.appendChild(el);
+    }
+}
+
+// ── Tree search ───────────────────────────────────────────────────────────────
+const treeSearchInput  = document.getElementById('tree-search-input');
+const btnTreeSearch    = document.getElementById('btn-tree-search');
+const btnTreeClear     = document.getElementById('btn-tree-clear');
+const treeSearchStatus = document.getElementById('tree-search-status');
+const fileTree         = document.getElementById('file-tree');
+
+let _treeSearchAbort = null;
+
+treeSearchInput.addEventListener('input', () => {
+    btnTreeClear.classList.toggle('hidden', !treeSearchInput.value);
+});
+
+treeSearchInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doTreeSearch();
+});
+
+btnTreeSearch.addEventListener('click', doTreeSearch);
+
+btnTreeClear.addEventListener('click', () => {
+    treeSearchInput.value = '';
+    btnTreeClear.classList.add('hidden');
+    clearTreeSearch();
+    treeSearchInput.focus();
+});
+
+function clearTreeSearch() {
+    if (_treeSearchAbort) { _treeSearchAbort.abort(); _treeSearchAbort = null; }
+    fileTree.classList.remove('tree-search-active');
+    fileTree.querySelectorAll('.tree-file.search-match').forEach(el => {
+        el.classList.remove('search-match');
+        el.querySelector('.match-badge')?.remove();
+    });
+    treeSearchStatus.classList.add('hidden');
+}
+
+async function doTreeSearch() {
+    const query = treeSearchInput.value.trim();
+    if (!query) { clearTreeSearch(); return; }
+
+    if (_treeSearchAbort) _treeSearchAbort.abort();
+    _treeSearchAbort = new AbortController();
+    const signal = _treeSearchAbort.signal;
+
+    clearTreeSearch();
+
+    treeSearchStatus.textContent = 'Bilatzen planoetan…';
+    treeSearchStatus.classList.remove('hidden');
+
+    try {
+        const resp = await fetch('/api/search-tree?q=' + encodeURIComponent(query), { signal });
+        if (!resp.ok) throw new Error('HTTP ' + resp.status);
+        const results = await resp.json();
+
+        fileTree.classList.add('tree-search-active');
+
+        if (!results.length) {
+            treeSearchStatus.textContent = 'Ez da emaitzarik aurkitu';
+            return;
+        }
+
+        treeSearchStatus.textContent = results.length + (results.length === 1 ? ' plano' : ' plano');
+
+        let first = true;
+        results.forEach(({ path, count }) => {
+            const el = fileTree.querySelector(`.tree-file[data-path="${CSS.escape(path)}"]`);
+            if (!el) return;
+            el.classList.add('search-match');
+            const badge = document.createElement('span');
+            badge.className = 'match-badge';
+            badge.textContent = count;
+            el.appendChild(badge);
+            // Abrir todas las carpetas padre
+            let parent = el.parentElement;
+            while (parent && parent !== fileTree) {
+                if (parent.tagName === 'DETAILS') parent.open = true;
+                parent = parent.parentElement;
+            }
+            if (first) {
+                el.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                first = false;
+            }
+        });
+    } catch (e) {
+        if (e.name === 'AbortError') return;
+        treeSearchStatus.textContent = 'Errorea: ' + e.message;
     }
 }
 

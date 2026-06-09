@@ -10,6 +10,16 @@
     <div id="app">
         <aside id="sidebar">
             <div id="sidebar-header">Planoak <span id="app-version">v2.0.2</span></div>
+            <div id="tree-search-bar">
+                <div id="tree-search-wrap">
+                    <input id="tree-search-input" type="search" placeholder="Bilatu planoetan..." autocomplete="off" spellcheck="false">
+                    <button id="btn-tree-clear" class="hidden" title="Garbitu">&#10005;</button>
+                </div>
+                <button id="btn-tree-search" title="Bilatu">
+                    <svg width="14" height="14" viewBox="0 0 17 17" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="7" cy="7" r="5"/><line x1="11" y1="11" x2="15" y2="15"/></svg>
+                </button>
+            </div>
+            <div id="tree-search-status" class="hidden"></div>
             <div id="file-tree"></div>
         </aside>
 

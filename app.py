@@ -118,4 +118,27 @@ def search_svg(path: str = Query(...), q: str = Query(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/search-tree")
+def search_tree_endpoint(q: str = Query(...)):
+    if not q or not q.strip():
+        return []
+    query = q.strip()
+    candidates = sorted(
+        list(PLANOS_PATH.glob('*.dwg'))   + list(PLANOS_PATH.glob('*.dxf')) +
+        list(PLANOS_PATH.glob('*/*.dwg')) + list(PLANOS_PATH.glob('*/*.dxf'))
+    )
+    results = []
+    for fp in candidates:
+        try:
+            matches = converter.search_text(fp, query, CACHE_PATH, PLANOS_PATH)
+            if matches:
+                results.append({
+                    'path':  fp.relative_to(PLANOS_PATH).as_posix(),
+                    'count': len(matches)
+                })
+        except Exception as e:
+            logger.warning(f"search-tree [{fp.name}]: {e}")
+    return results
+
+
 app.mount("/", StaticFiles(directory=str(ROOT / "frontend"), html=True), name="static")
