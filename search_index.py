@@ -117,11 +117,25 @@ def search_in_file(db_path: Path, rel_path: str, query: str) -> list:
 
 def search_all(db_path: Path, query: str) -> list:
     """Busca en todos los archivos via FTS5 trigrama. Instantaneo."""
+    # Envolver en comillas para phrase search: evita que FTS5 interprete
+    # caracteres como '-' como operadores (NOT, etc.)
+    phrase = '"' + query.replace('"', '""') + '"'
     with sqlite3.connect(str(db_path)) as conn:
-        rows = conn.execute(
-            """SELECT path, COUNT(*) FROM entries_fts
-               WHERE text MATCH ?
-               GROUP BY path ORDER BY path""",
-            (query,)
-        ).fetchall()
+        try:
+            rows = conn.execute(
+                """SELECT path, COUNT(*) FROM entries_fts
+                   WHERE text MATCH ?
+                   GROUP BY path ORDER BY path""",
+                (phrase,)
+            ).fetchall()
+            logger.debug(f"FTS5 search '{query}': {len(rows)} planos")
+        except Exception as e:
+            # Fallback a LIKE si FTS5 no esta disponible o falla
+            logger.warning(f"FTS5 MATCH fallo ({e}), usando LIKE como fallback")
+            rows = conn.execute(
+                """SELECT path, COUNT(*) FROM entries
+                   WHERE text LIKE ? COLLATE NOCASE
+                   GROUP BY path ORDER BY path""",
+                (f'%{query}%',)
+            ).fetchall()
     return [{'path': r[0], 'count': r[1]} for r in rows]

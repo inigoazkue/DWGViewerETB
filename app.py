@@ -184,7 +184,14 @@ def search_svg(path: str = Query(...), q: str = Query(...)):
 def search_tree_endpoint(q: str = Query(...)):
     if not q or not q.strip():
         return []
-    return search_index.search_all(INDEX_DB, q.strip())
+    query = q.strip()
+    try:
+        results = search_index.search_all(INDEX_DB, query)
+        logger.info(f"search-tree '{query}': {len(results)} planos")
+        return results
+    except Exception as e:
+        logger.error(f"search-tree error '{query}': {e}")
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 app.mount("/", StaticFiles(directory=str(ROOT / "frontend"), html=True), name="static")
