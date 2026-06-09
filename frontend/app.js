@@ -551,7 +551,7 @@ async function pollIndexStatus() {
                     ? s.current + ' indexatzen...'
                     : 'Planoen datuan indexatzen...';
                 elIndexBar.style.width = s.pct + '%';
-                elIndexPct.textContent = s.pct + '%';
+                elIndexPct.textContent = '% ' + s.pct;
             } else {
                 elIndexProgress.classList.add('hidden');
             }
