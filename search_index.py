@@ -4,21 +4,53 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
+# entries: datos completos (para search_in_file con filtro por path, ya rapido con indice)
+# entries_fts: tabla FTS5 con tokenizador trigrama para search_all instantaneo
 _SCHEMA = """
 CREATE TABLE IF NOT EXISTS entries (
     id          INTEGER PRIMARY KEY,
-    path        TEXT    NOT NULL,
-    path_mtime  REAL    NOT NULL,
-    text        TEXT    NOT NULL,
+    path        TEXT NOT NULL,
+    path_mtime  REAL NOT NULL,
+    text        TEXT NOT NULL,
     nx          REAL,
     ny          REAL
 );
 CREATE INDEX IF NOT EXISTS idx_entries_path ON entries(path);
-CREATE INDEX IF NOT EXISTS idx_entries_text ON entries(text);
+
+CREATE VIRTUAL TABLE IF NOT EXISTS entries_fts USING fts5(
+    path UNINDEXED,
+    text,
+    tokenize = 'trigram case_sensitive 0'
+);
 """
+
+_SCHEMA_VERSION = 2  # incrementar si cambia el esquema
+
+
+def _check_migration(db_path: Path):
+    """Elimina la BD si el esquema es antiguo (sin entries_fts trigram)."""
+    if not db_path.exists():
+        return
+    try:
+        with sqlite3.connect(str(db_path)) as conn:
+            tables = {r[0] for r in conn.execute(
+                "SELECT name FROM sqlite_master WHERE type='table' OR type='shadow'"
+            ).fetchall()}
+            if 'entries_fts' not in tables:
+                raise ValueError("esquema antiguo sin FTS")
+            # Verificar que entries_fts usa trigrama
+            info = conn.execute(
+                "SELECT sql FROM sqlite_master WHERE name='entries_fts'"
+            ).fetchone()
+            if not info or 'trigram' not in (info[0] or ''):
+                raise ValueError("FTS sin trigrama")
+    except Exception as e:
+        logger.info(f"Index: migracion de esquema ({e}), eliminando BD antigua")
+        db_path.unlink()
 
 
 def init(db_path: Path):
+    _check_migration(db_path)
     with sqlite3.connect(str(db_path)) as conn:
         conn.executescript(_SCHEMA)
 
@@ -35,6 +67,7 @@ def get_indexed_mtimes(db_path: Path) -> dict:
 def remove_path(db_path: Path, rel_path: str):
     with sqlite3.connect(str(db_path)) as conn:
         conn.execute("DELETE FROM entries WHERE path = ?", (rel_path,))
+        conn.execute("DELETE FROM entries_fts WHERE path = ?", (rel_path,))
     logger.info(f"Index: entradas eliminadas para {rel_path}")
 
 
@@ -51,9 +84,14 @@ def index_file(db_path: Path, file_path: Path, base_path: Path, cache_dir: Path)
         return 0
     with sqlite3.connect(str(db_path)) as conn:
         conn.execute("DELETE FROM entries WHERE path = ?", (rel,))
+        conn.execute("DELETE FROM entries_fts WHERE path = ?", (rel,))
         conn.executemany(
             "INSERT INTO entries (path, path_mtime, text, nx, ny) VALUES (?,?,?,?,?)",
             [(rel, mtime, r['text'], r.get('nx'), r.get('ny')) for r in results]
+        )
+        conn.executemany(
+            "INSERT INTO entries_fts (path, text) VALUES (?,?)",
+            [(rel, r['text']) for r in results]
         )
     logger.info(f"Index: {len(results)} entradas para {file_path.name}")
     return len(results)
@@ -68,7 +106,7 @@ def is_indexed(db_path: Path, rel_path: str) -> bool:
 
 
 def search_in_file(db_path: Path, rel_path: str, query: str) -> list:
-    """Busca en un archivo indexado. Devuelve [{text, nx, ny}]."""
+    """Busca en un archivo indexado. Rapido gracias al indice por path."""
     with sqlite3.connect(str(db_path)) as conn:
         rows = conn.execute(
             "SELECT text, nx, ny FROM entries WHERE path = ? AND text LIKE ? COLLATE NOCASE",
@@ -78,12 +116,12 @@ def search_in_file(db_path: Path, rel_path: str, query: str) -> list:
 
 
 def search_all(db_path: Path, query: str) -> list:
-    """Busca en todos los archivos indexados. Devuelve [{path, count}]."""
+    """Busca en todos los archivos via FTS5 trigrama. Instantaneo."""
     with sqlite3.connect(str(db_path)) as conn:
         rows = conn.execute(
-            """SELECT path, COUNT(*) FROM entries
-               WHERE text LIKE ? COLLATE NOCASE
+            """SELECT path, COUNT(*) FROM entries_fts
+               WHERE text MATCH ?
                GROUP BY path ORDER BY path""",
-            (f'%{query}%',)
+            (query,)
         ).fetchall()
     return [{'path': r[0], 'count': r[1]} for r in rows]
