@@ -61,14 +61,11 @@ function applyTransform() {
     if (w) w.style.transform = `translate(${tx}px,${ty}px) scale(${scale})`;
 }
 
-let _fitScale = 0;
-
 function fitToScreen() {
     if (!svgW || !svgH) return;
     const vw = viewer.clientWidth;
     const vh = viewer.clientHeight;
     scale = Math.min(vw / svgW, vh / svgH) * 0.92;
-    _fitScale = scale;
     minScale = scale * 0.5;
     tx = (vw - svgW * scale) / 2;
     ty = (vh - svgH * scale) / 2;
@@ -195,16 +192,12 @@ function escapeHtml(s) {
     return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
 }
 
-// Navega al punto DXF (dxfX, dxfY) usando el viewBox del SVG.
-// ezdxf SVGBackend invierte el eje Y: svg_y = -dxf_y
-// Por tanto viewBox.y ≈ -max_dxf_y (negativo)
 function navigateToDxf(nx, ny) {
     if (!svgW || !svgH) return;
     const pxX = nx * svgW;
     const pxY = (1 - ny) * svgH;
-    // Zoom a 3× el fit scale para ver el elemento con claridad
-    const targetScale = Math.max(scale, (_fitScale || 0.1) * 3);
-    scale = Math.min(targetScale, 200);
+    // Zoom para que el 3% del ancho del plano llene la pantalla (consistente entre planos)
+    scale = Math.min(viewer.clientWidth / (0.03 * svgW), 200);
     tx = viewer.clientWidth  / 2 - pxX * scale;
     ty = viewer.clientHeight / 2 - pxY * scale;
     applyTransform();
