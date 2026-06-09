@@ -71,6 +71,46 @@ html, body {
     user-select: none;
 }
 
+/* ── Index progress ── */
+#index-progress {
+    border-top: 1px solid var(--border);
+    padding: 10px 14px 12px;
+    flex-shrink: 0;
+    background: var(--darker);
+}
+
+#index-progress-text {
+    font-size: 11px;
+    color: var(--muted);
+    margin-bottom: 6px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+#index-progress-bar-wrap {
+    height: 3px;
+    background: var(--border);
+    border-radius: 2px;
+    overflow: hidden;
+    margin-bottom: 4px;
+}
+
+#index-progress-bar {
+    height: 100%;
+    background: var(--accent);
+    border-radius: 2px;
+    width: 0%;
+    transition: width 0.4s ease;
+}
+
+#index-progress-pct {
+    font-size: 10px;
+    color: var(--muted);
+    text-align: right;
+    opacity: 0.6;
+}
+
 /* ── Tree search ── */
 #tree-search-bar {
     display: flex;

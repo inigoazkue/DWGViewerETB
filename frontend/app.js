@@ -494,4 +494,32 @@ async function loadTree() {
     }
 }
 
+// ── Index progress polling ────────────────────────────────────────────────────
+const elIndexProgress = document.getElementById('index-progress');
+const elIndexText     = document.getElementById('index-progress-text');
+const elIndexBar      = document.getElementById('index-progress-bar');
+const elIndexPct      = document.getElementById('index-progress-pct');
+
+async function pollIndexStatus() {
+    try {
+        const resp = await fetch('/api/index-status');
+        if (resp.ok) {
+            const s = await resp.json();
+            if (s.running) {
+                elIndexProgress.classList.remove('hidden');
+                elIndexText.textContent = s.current
+                    ? s.current + ' indexatzen...'
+                    : 'Planoen datuan indexatzen...';
+                elIndexBar.style.width = s.pct + '%';
+                elIndexPct.textContent = s.pct + '%';
+            } else {
+                elIndexProgress.classList.add('hidden');
+            }
+        }
+    } catch (_) {}
+    setTimeout(pollIndexStatus, 1500);
+}
+
+pollIndexStatus();
+
 loadTree();
