@@ -64,7 +64,7 @@ async def lifespan(app: FastAPI):
 import converter
 import file_browser
 
-app = FastAPI(title="Visor de Planos", lifespan=lifespan)
+app = FastAPI(title="Planoen Bistaratzailea", lifespan=lifespan)
 
 
 @app.get("/api/tree")
