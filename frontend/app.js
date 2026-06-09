@@ -164,6 +164,105 @@ document.getElementById('btn-toggle').addEventListener('click', () => {
     setTimeout(fitToScreen, 220);
 });
 
+// ── Search ────────────────────────────────────────────────────────────────────
+const searchPanel   = document.getElementById('search-panel');
+const searchInput   = document.getElementById('search-input');
+const searchResults = document.getElementById('search-results');
+const searchEmpty   = document.getElementById('search-empty');
+
+document.getElementById('btn-search').addEventListener('click', () => {
+    const nowHidden = searchPanel.classList.toggle('hidden');
+    if (!nowHidden) {
+        searchInput.focus();
+        doSearch();
+    } else {
+        clearHighlights();
+    }
+});
+
+document.getElementById('btn-search-close').addEventListener('click', () => {
+    searchPanel.classList.add('hidden');
+    clearHighlights();
+});
+
+let _searchTimer = null;
+searchInput.addEventListener('input', () => {
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(doSearch, 180);
+});
+
+function escapeHtml(s) {
+    return s.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function clearHighlights() {
+    wrapper()?.querySelector('svg')?.querySelectorAll('text.sh')
+        .forEach(el => el.classList.remove('sh'));
+}
+
+function navigateTo(el) {
+    const vr  = viewer.getBoundingClientRect();
+    const er  = el.getBoundingClientRect();
+    const cx  = er.left + er.width  / 2 - vr.left;
+    const cy  = er.top  + er.height / 2 - vr.top;
+    tx += viewer.clientWidth  / 2 - cx;
+    ty += viewer.clientHeight / 2 - cy;
+    applyTransform();
+    activateGPU();
+}
+
+function doSearch() {
+    const query = searchInput.value.trim();
+    searchResults.innerHTML = '';
+    searchEmpty.classList.add('hidden');
+    clearHighlights();
+
+    if (!query) return;
+
+    const svg = wrapper()?.querySelector('svg');
+    if (!svg) {
+        searchEmpty.textContent = 'Ez dago planorik kargatuta';
+        searchEmpty.classList.remove('hidden');
+        return;
+    }
+
+    const q = query.toLowerCase();
+    const matches = [];
+
+    svg.querySelectorAll('text').forEach(el => {
+        const text = el.textContent.trim();
+        if (text && text.toLowerCase().includes(q)) {
+            matches.push({ el, text });
+            el.classList.add('sh');
+        }
+    });
+
+    if (!matches.length) {
+        searchEmpty.textContent = 'Ez da emaitzarik aurkitu';
+        searchEmpty.classList.remove('hidden');
+        return;
+    }
+
+    let activeItem = null;
+
+    matches.forEach(({ el, text }) => {
+        const item = document.createElement('div');
+        item.className = 'search-item';
+        const idx = text.toLowerCase().indexOf(q);
+        item.innerHTML =
+            escapeHtml(text.slice(0, idx)) +
+            '<mark>' + escapeHtml(text.slice(idx, idx + query.length)) + '</mark>' +
+            escapeHtml(text.slice(idx + query.length));
+        item.addEventListener('click', () => {
+            if (activeItem) activeItem.classList.remove('active');
+            item.classList.add('active');
+            activeItem = item;
+            navigateTo(el);
+        });
+        searchResults.appendChild(item);
+    });
+}
+
 // ── File loading ──────────────────────────────────────────────────────────────
 const elPlaceholder = document.getElementById('placeholder');
 const elLoading     = document.getElementById('loading');
@@ -217,6 +316,7 @@ async function openFile(path, name) {
 
         viewer.appendChild(div);
         fitToScreen();
+        if (!searchPanel.classList.contains('hidden') && searchInput.value.trim()) doSearch();
     } catch (err) {
         elErrorMsg.textContent = 'Error: ' + err.message;
         elError.classList.remove('hidden');
