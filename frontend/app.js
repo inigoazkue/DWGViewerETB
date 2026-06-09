@@ -426,10 +426,11 @@ async function doTreeSearch() {
     if (!query) { clearTreeSearch(); return; }
 
     if (_treeSearchAbort) _treeSearchAbort.abort();
+    _treeSearchAbort = null;   // null antes de clearTreeSearch para que no aborte el nuevo signal
+    clearTreeSearch();
+
     _treeSearchAbort = new AbortController();
     const signal = _treeSearchAbort.signal;
-
-    clearTreeSearch();
 
     treeSearchStatus.textContent = 'Planoetan bilatzen…';
     treeSearchStatus.classList.remove('hidden');
