@@ -146,6 +146,29 @@ def get_svg(path: str = Query(...)):
         raise HTTPException(status_code=500, detail=str(e))
 
 
+@app.get("/api/debug-index")
+def debug_index():
+    import sqlite3 as _sq
+    if not INDEX_DB.exists():
+        return {"error": "DB no existe", "path": str(INDEX_DB)}
+    with _sq.connect(str(INDEX_DB)) as conn:
+        try:
+            entries = conn.execute("SELECT COUNT(*) FROM entries").fetchone()[0]
+        except Exception as e:
+            entries = f"error: {e}"
+        try:
+            fts = conn.execute("SELECT COUNT(*) FROM entries_fts").fetchone()[0]
+        except Exception as e:
+            fts = f"error: {e}"
+        try:
+            paths = [r[0] for r in conn.execute(
+                "SELECT DISTINCT path FROM entries LIMIT 20"
+            ).fetchall()]
+        except Exception as e:
+            paths = [f"error: {e}"]
+    return {"entries": entries, "entries_fts": fts, "sample_paths": paths, "db": str(INDEX_DB)}
+
+
 @app.get("/api/index-status")
 def index_status():
     return _index_progress
