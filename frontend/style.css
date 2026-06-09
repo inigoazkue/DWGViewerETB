@@ -56,6 +56,7 @@ html, body {
     letter-spacing: 0.4px;
     border-bottom: 1px solid var(--border);
     flex-shrink: 0;
+    position: relative;
 }
 
 #app-version {
