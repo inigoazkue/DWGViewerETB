@@ -184,10 +184,8 @@ document.getElementById('btn-search-close').addEventListener('click', () => {
     searchPanel.classList.add('hidden');
 });
 
-let _searchTimer = null;
-searchInput.addEventListener('input', () => {
-    clearTimeout(_searchTimer);
-    _searchTimer = setTimeout(doSearch, 300);
+searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') doSearch();
 });
 
 function escapeHtml(s) {

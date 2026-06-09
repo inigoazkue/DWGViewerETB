@@ -129,16 +129,6 @@ def _find_oda() -> list:
     return [p for p in candidates if Path(p).exists()]
 
 
-def _query_matches(text: str, query: str) -> bool:
-    """Si la query es solo dígitos, busca como número completo (sin dígitos adyacentes).
-    Si tiene letras/símbolos, busca como subcadena normal."""
-    import re
-    if query.isdigit():
-        pattern = r'(?<!\d)' + re.escape(query) + r'(?!\d)'
-        return bool(re.search(pattern, text, re.IGNORECASE))
-    return query.lower() in text.lower()
-
-
 def search_text(file_path: Path, query: str, cache_dir: Path, base_path: Path) -> list:
     """Busca texto en entidades TEXT/MTEXT del DXF. Devuelve [{text, x, y}]."""
     import ezdxf
@@ -162,6 +152,7 @@ def search_text(file_path: Path, query: str, cache_dir: Path, base_path: Path) -
 
     results = []
     seen = set()
+    q = query.lower()
 
     def _collect(entities, dx=0.0, dy=0.0):
         for e in entities:
@@ -188,7 +179,7 @@ def search_text(file_path: Path, query: str, cache_dir: Path, base_path: Path) -
                     block = doc.blocks.get(e.dxf.name)
                     if block:
                         _collect(block, dx + e.dxf.insert.x, dy + e.dxf.insert.y)
-                if text and _query_matches(text, query):
+                if text and q in text.lower():
                     key = (text.strip(), round(ex, 1), round(ey, 1))
                     if key not in seen:
                         seen.add(key)
