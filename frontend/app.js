@@ -201,11 +201,17 @@ function navigateToDxf(dxfX, dxfY) {
     const vb = svg.viewBox.baseVal;
     if (!vb || vb.width === 0) return;
 
+    console.log('DXF:', dxfX, dxfY);
+    console.log('viewBox:', vb.x, vb.y, vb.width, vb.height);
+    console.log('SVG px:', svgW, svgH);
+
     const svgCoordX = dxfX;
-    const svgCoordY = -dxfY;                              // eje Y invertido
+    const svgCoordY = -dxfY;
 
     const pxX = (svgCoordX - vb.x) / vb.width  * svgW;
     const pxY = (svgCoordY - vb.y) / vb.height * svgH;
+
+    console.log('pxX:', pxX, 'pxY:', pxY);
 
     tx = viewer.clientWidth  / 2 - pxX * scale;
     ty = viewer.clientHeight / 2 - pxY * scale;
