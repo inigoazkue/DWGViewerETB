@@ -205,10 +205,22 @@ def search_text(file_path: Path, query: str, cache_dir: Path, base_path: Path) -
 
     collect(doc.modelspace())
     logger.info(f"Busqueda '{query}' en {file_path.name}: {len(results)} resultados")
-    if not results:
-        from collections import Counter
-        counts = Counter(e.dxftype() for e in doc.modelspace())
-        logger.info(f"Tipos de entidad en modelspace: {dict(counts)}")
+
+    # Normalizar coordenadas a 0-1 usando los extents del DXF
+    try:
+        extmin = doc.header.get('$EXTMIN', None)
+        extmax = doc.header.get('$EXTMAX', None)
+        if extmin and extmax:
+            dx = extmax[0] - extmin[0]
+            dy = extmax[1] - extmin[1]
+            if dx > 0 and dy > 0:
+                for r in results:
+                    r['nx'] = (r['x'] - extmin[0]) / dx
+                    r['ny'] = (r['y'] - extmin[1]) / dy
+                logger.info(f"Extents DXF: ({extmin[0]:.1f},{extmin[1]:.1f}) - ({extmax[0]:.1f},{extmax[1]:.1f})")
+    except Exception as e:
+        logger.warning(f"No se pudieron calcular extents: {e}")
+
     return results
 
 

@@ -195,24 +195,12 @@ function escapeHtml(s) {
 // Navega al punto DXF (dxfX, dxfY) usando el viewBox del SVG.
 // ezdxf SVGBackend invierte el eje Y: svg_y = -dxf_y
 // Por tanto viewBox.y ≈ -max_dxf_y (negativo)
-function navigateToDxf(dxfX, dxfY) {
-    const svg = wrapper()?.querySelector('svg');
-    if (!svg) return;
-    const vb = svg.viewBox.baseVal;
-    if (!vb || vb.width === 0) return;
-
-    console.log('DXF:', dxfX, dxfY);
-    console.log('viewBox:', vb.x, vb.y, vb.width, vb.height);
-    console.log('SVG px:', svgW, svgH);
-
-    const svgCoordX = dxfX;
-    const svgCoordY = -dxfY;
-
-    const pxX = (svgCoordX - vb.x) / vb.width  * svgW;
-    const pxY = (svgCoordY - vb.y) / vb.height * svgH;
-
-    console.log('pxX:', pxX, 'pxY:', pxY);
-
+function navigateToDxf(nx, ny) {
+    // nx, ny: posicion normalizada 0-1 en espacio DXF (Y hacia arriba)
+    // SVG tiene Y hacia abajo, por eso se invierte ny
+    if (!svgW || !svgH) return;
+    const pxX = nx * svgW;
+    const pxY = (1 - ny) * svgH;
     tx = viewer.clientWidth  / 2 - pxX * scale;
     ty = viewer.clientHeight / 2 - pxY * scale;
     applyTransform();
@@ -252,7 +240,7 @@ async function doSearch() {
         }
 
         let activeItem = null;
-        matches.forEach(({ text, x, y }) => {
+        matches.forEach(({ text, x, y, nx, ny }) => {
             const item = document.createElement('div');
             item.className = 'search-item';
             const idx = text.toLowerCase().indexOf(query.toLowerCase());
@@ -268,7 +256,9 @@ async function doSearch() {
                 if (activeItem) activeItem.classList.remove('active');
                 item.classList.add('active');
                 activeItem = item;
-                navigateToDxf(x, y);
+                if (nx != null && ny != null) {
+                    navigateToDxf(nx, ny);
+                }
             });
             searchResults.appendChild(item);
         });
