@@ -431,7 +431,7 @@ async function doTreeSearch() {
 
     clearTreeSearch();
 
-    treeSearchStatus.textContent = 'Bilatzen planoetan…';
+    treeSearchStatus.textContent = 'Planoetan bilatzen…';
     treeSearchStatus.classList.remove('hidden');
 
     try {
@@ -521,5 +521,24 @@ async function pollIndexStatus() {
 }
 
 pollIndexStatus();
+
+const btnReindex = document.getElementById('btn-reindex');
+btnReindex.addEventListener('click', async () => {
+    if (!confirm('Indize osoa ezabatu eta berriz sortu nahi duzu?\n(Denbora pixka bat beharko du)')) return;
+    btnReindex.classList.add('spinning');
+    btnReindex.disabled = true;
+    try {
+        const resp = await fetch('/api/reindex', { method: 'POST' });
+        const data = await resp.json();
+        if (data.status === 'already_running') {
+            alert('Indexazioa dagoeneko abian da.');
+        }
+    } catch (e) {
+        alert('Errorea: ' + e.message);
+    } finally {
+        btnReindex.classList.remove('spinning');
+        btnReindex.disabled = false;
+    }
+});
 
 loadTree();

@@ -161,12 +161,39 @@ def debug_index():
         except Exception as e:
             fts = f"error: {e}"
         try:
+            distinct_paths = conn.execute(
+                "SELECT COUNT(DISTINCT path) FROM entries"
+            ).fetchone()[0]
+        except Exception as e:
+            distinct_paths = f"error: {e}"
+        try:
             paths = [r[0] for r in conn.execute(
-                "SELECT DISTINCT path FROM entries LIMIT 20"
+                "SELECT DISTINCT path FROM entries ORDER BY path"
             ).fetchall()]
         except Exception as e:
             paths = [f"error: {e}"]
-    return {"entries": entries, "entries_fts": fts, "sample_paths": paths, "db": str(INDEX_DB)}
+    return {
+        "entries": entries, "entries_fts": fts,
+        "distinct_paths": distinct_paths,
+        "all_paths": paths,
+        "db": str(INDEX_DB)
+    }
+
+
+def _force_reindex():
+    if INDEX_DB.exists():
+        INDEX_DB.unlink()
+        logger.info("Reindex forzado: BD eliminada")
+    _update_search_index()
+
+
+@app.post("/api/reindex")
+def trigger_reindex():
+    """Elimina el indice existente y lo regenera completamente."""
+    if _index_progress.get('running'):
+        return {"status": "already_running"}
+    _executor.submit(_force_reindex)
+    return {"status": "started"}
 
 
 @app.get("/api/index-status")

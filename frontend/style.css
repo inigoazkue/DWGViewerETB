@@ -159,13 +159,23 @@ html, body {
 }
 #btn-tree-clear:hover { background: var(--accent); border-color: transparent; }
 
-#btn-tree-search {
+#btn-tree-search,
+#btn-reindex {
     min-width: 32px;
     min-height: 32px;
     padding: 0;
     border-radius: 6px;
     flex-shrink: 0;
 }
+
+#btn-reindex {
+    font-size: 15px;
+    color: var(--muted);
+    background: transparent;
+    border-color: transparent;
+}
+#btn-reindex:hover { background: var(--hover); border-color: var(--border); color: var(--text); }
+#btn-reindex.spinning { animation: spin 1s linear infinite; }
 
 #tree-search-status {
     padding: 6px 14px;
