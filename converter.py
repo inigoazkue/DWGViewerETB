@@ -130,7 +130,7 @@ def _find_oda() -> list:
 
 
 def search_text(file_path: Path, query: str, cache_dir: Path, base_path: Path) -> list:
-    """Busca texto en entidades TEXT/MTEXT del DXF. Devuelve [{text, x, y}]."""
+    """Busca texto en entidades TEXT/MTEXT/ATTRIB del DXF. Devuelve [{text, x, y}]."""
     import ezdxf
     from ezdxf import recover
 
@@ -150,44 +150,55 @@ def search_text(file_path: Path, query: str, cache_dir: Path, base_path: Path) -
         except Exception as e:
             raise RuntimeError(f"No se puede leer el DXF: {e}")
 
+    q = query.lower()
     results = []
     seen = set()
-    q = query.lower()
 
-    def _collect(entities, dx=0.0, dy=0.0):
-        for e in entities:
+    def add(text, x, y):
+        text = (text or '').strip()
+        if not text:
+            return
+        key = (text, round(x, 1), round(y, 1))
+        if key not in seen:
+            seen.add(key)
+            results.append({'text': text, 'x': x, 'y': y})
+
+    def collect(layout, ox=0.0, oy=0.0, depth=0):
+        if depth > 8:
+            return
+        for e in layout:
             try:
                 t = e.dxftype()
-                text = None
-                ex, ey = dx, dy
                 if t == 'TEXT':
-                    text = e.dxf.text
-                    ex = dx + e.dxf.insert.x
-                    ey = dy + e.dxf.insert.y
+                    text = e.dxf.get('text', '')
+                    if q in text.lower():
+                        add(text, ox + e.dxf.insert.x, oy + e.dxf.insert.y)
                 elif t == 'MTEXT':
                     try:
                         text = e.plain_mtext()
                     except Exception:
-                        text = e.dxf.get('text', '')
-                    ex = dx + e.dxf.insert.x
-                    ey = dy + e.dxf.insert.y
-                elif t in ('ATTRIB', 'ATTDEF'):
-                    text = e.dxf.text
-                    ex = dx + e.dxf.insert.x
-                    ey = dy + e.dxf.insert.y
+                        text = e.dxf.get('text', '') or ''
+                    if q in text.lower():
+                        add(text, ox + e.dxf.insert.x, oy + e.dxf.insert.y)
                 elif t == 'INSERT':
+                    ix = ox + e.dxf.insert.x
+                    iy = oy + e.dxf.insert.y
+                    # ATTRIBs son sub-entidades del INSERT, no del bloque
+                    for attrib in e.attribs:
+                        try:
+                            text = attrib.dxf.get('text', '')
+                            if q in text.lower():
+                                add(text, ix, iy)
+                        except Exception:
+                            pass
+                    # Recursar en el bloque referenciado
                     block = doc.blocks.get(e.dxf.name)
                     if block:
-                        _collect(block, dx + e.dxf.insert.x, dy + e.dxf.insert.y)
-                if text and q in text.lower():
-                    key = (text.strip(), round(ex, 1), round(ey, 1))
-                    if key not in seen:
-                        seen.add(key)
-                        results.append({'text': text.strip(), 'x': ex, 'y': ey})
-            except Exception:
-                continue
+                        collect(block, ix, iy, depth + 1)
+            except Exception as ex:
+                logger.debug(f"search entity error ({e.dxftype() if hasattr(e,'dxftype') else '?'}): {ex}")
 
-    _collect(doc.modelspace())
+    collect(doc.modelspace())
     logger.info(f"Busqueda '{query}' en {file_path.name}: {len(results)} resultados")
     return results
 
