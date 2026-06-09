@@ -4,6 +4,43 @@ Todos los cambios relevantes de Planoen Bistaratzailea se documentan aquí.
 
 ---
 
+## [v2.1.0] — 2026-06-09
+
+### Añadido
+
+**Búsqueda global en árbol**
+- Campo de búsqueda en el sidebar que busca un texto en todos los planos a la vez
+- Resalta los archivos con coincidencias con badge de conteo; abre automáticamente las carpetas que los contienen
+- Cancela peticiones anteriores con `AbortController` para evitar resultados solapados
+- Botón ↻ para re-indexado forzado (elimina BD y regenera desde cero)
+
+**Índice SQLite FTS5**
+- Nuevo módulo `search_index.py`: índice SQLite con tabla FTS5 y tokenizador trigrama (`case_sensitive 0`)
+- ~250K entradas indexadas; búsqueda global instantánea mediante `MATCH '"query"'` (phrase search)
+- Indexación incremental: detecta planos nuevos o modificados (por mtime) y actualiza solo los necesarios
+- Limpia automáticamente las entradas de planos eliminados
+- Migración automática de esquema: si la BD no tiene FTS5 trigrama, se borra y re-indexa
+- `POST /api/reindex`: elimina el índice y lanza re-indexado completo en background
+- `GET /api/index-status`: estado en tiempo real del indexado en curso
+
+**Barra de progreso de indexación**
+- Indicador en la parte inferior del sidebar: "Planoen datuak indexatzen...", barra de progreso y porcentaje `% XX`
+- Se muestra solo mientras el indexado está en curso; desaparece al terminar
+
+**Árbol de directorios lazy loading**
+- `GET /api/tree` devuelve solo el primer nivel (shallow) con subdirectorios marcados `lazy: true`
+- `GET /api/tree?path=carpeta` devuelve los hijos directos de esa carpeta bajo demanda
+- La carga inicial del árbol es instantánea; cada carpeta se carga al expandirla por primera vez
+- La búsqueda global fuerza la carga de las carpetas necesarias antes de resaltar archivos
+
+### Corregido
+
+- `doTreeSearch` abortaba su propia petición: el `AbortController` se creaba antes de `clearTreeSearch()`, que lo cancelaba inmediatamente; el fetch lanzaba `AbortError` silencioso y el estado quedaba bloqueado en "Planoetan bilatzen…"
+- Texto corregido: "Bilatzen planoetan" → "Planoetan bilatzen…"
+- Texto corregido: "Planoen datuan indexatzen" → "Planoen datuak indexatzen..."
+
+---
+
 ## [v2.0.2] — 2026-06-09
 
 ### Cambiado

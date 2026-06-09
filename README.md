@@ -1,6 +1,6 @@
 # Planoen Bistaratzailea — Visor de planos DWG
 
-**v2.0.0**
+**v2.1.0**
 
 Visor web de planos AutoCAD para uso interno. Diseñado para que los operadores consulten planos de instalación DWG desde una terminal táctil en la sala de racks, con acceso de solo lectura a los planos almacenados en un servidor Linux remoto vía SMB.
 
@@ -30,14 +30,17 @@ Los SVGs se cachean en `cache/` replicando la estructura de carpetas. Si el DWG 
 
 ## Funcionalidades
 
-- Árbol de carpetas en sidebar con directorios colapsables
+- Árbol de carpetas en sidebar con carga lazy (primer nivel instantáneo, subcarpetas bajo demanda)
 - Renderizado SVG de planos AutoCAD DWG/DXF con visibilidad completa de capas
 - Paneo y zoom fluidos con aceleración GPU (rueda del ratón + pinch-to-zoom + arrastre)
 - Renderizado vectorial de calidad en reposo (sin pixelado)
-- **Búsqueda de texto**: localiza números de cable y etiquetas dentro del plano cargado; al hacer click en un resultado navega directamente a él en el dibujo
+- **Búsqueda en plano**: localiza números de cable y etiquetas dentro del plano cargado; click en resultado navega directamente al elemento
+- **Búsqueda global**: busca texto en todos los planos a la vez, resalta los planos con coincidencias y abre las carpetas que los contienen
+- **Índice SQLite FTS5** con tokenizador trigrama: ~250K entradas, búsqueda global instantánea independientemente del tamaño del índice
+- Indexación incremental automática en segundo plano (detecta planos nuevos y modificados); barra de progreso visible en el sidebar
+- Botón de re-indexado forzado para regenerar el índice desde cero
 - Pre-generación automática de SVGs al arranque para los planos del primer nivel
 - Limpieza automática de archivos SVG huérfanos en caché
-- Mantenimiento periódico en segundo plano (intervalo configurable)
 - Sin login — acceso abierto en LAN
 - Sin frameworks JavaScript, sin dependencias CDN, funciona completamente sin conexión
 
@@ -197,9 +200,13 @@ sudo systemctl restart dwgviewer
 
 | Endpoint | Descripción |
 |---|---|
-| `GET /api/tree` | Árbol completo de carpetas/archivos como JSON |
+| `GET /api/tree` | Hijos directos de la raíz (shallow); subdirs marcados `lazy:true` |
+| `GET /api/tree?path=carpeta` | Hijos directos de `carpeta` (carga on-demand) |
 | `GET /api/svg?path=rel/ruta.dwg` | SVG del plano (convierte y cachea si es necesario) |
 | `GET /api/search?path=rel/ruta.dwg&q=texto` | Busca texto en entidades DXF; devuelve `[{text, x, y, nx, ny}]` |
+| `GET /api/search-tree?q=texto` | Busca en todos los planos vía índice FTS5; devuelve `[{path, count}]` |
+| `GET /api/index-status` | Estado del indexado en curso `{running, pct, done, total, current}` |
+| `POST /api/reindex` | Elimina el índice y lanza re-indexado completo en background |
 | `GET /` | Frontend (index.html) |
 
 Todos los parámetros `path` son relativos a `planos_path`. El path traversal está bloqueado mediante `resolve()` + `relative_to()`.

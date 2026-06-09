@@ -2,7 +2,7 @@
 
 Visor web interno para que operadores consulten planos de instalación DWG desde una pantalla táctil en la sala de racks. Los ingenieros son quienes tienen acceso a los planos originales; este visor da acceso de solo lectura al resto.
 
-**Versión actual: v2.0.0**
+**Versión actual: v2.1.0**
 
 ## Arquitectura
 
@@ -41,7 +41,7 @@ El SVG se cachea en `cache/` con la misma estructura de carpetas que los planos 
 
 - **[app.py](app.py)** — FastAPI. Define `/api/tree`, `/api/svg`, `/api/search`. Monta el frontend como StaticFiles.
 - **[converter.py](converter.py)** — Toda la lógica de conversión y búsqueda. `to_svg()` para renderizar, `search_text()` para buscar texto en entidades DXF.
-- **[file_browser.py](file_browser.py)** — `build_tree()` recorre la carpeta de planos recursivamente. Solo incluye `.dwg` y `.dxf`.
+- **[file_browser.py](file_browser.py)** — `build_tree_shallow()` devuelve solo el primer nivel; subdirs con `lazy:True`. Carga on-demand vía `GET /api/tree?path=`.
 - **[config.json](config.json)** — Configuración por defecto (rutas de desarrollo en Windows).
 - **[config.local.json](config.local.json)** — Overrides de producción, **gitignoreado**. En Ubuntu: `{"planos_path": "/mnt/Planoak_MIR"}`.
 - **[frontend/app.js](frontend/app.js)** — Toda la lógica del cliente: árbol, pan/zoom, carga SVG, búsqueda.
@@ -51,9 +51,13 @@ El SVG se cachea en `cache/` con la misma estructura de carpetas que los planos 
 
 | Endpoint | Descripción |
 |---|---|
-| `GET /api/tree` | Árbol completo de carpetas/archivos como JSON |
+| `GET /api/tree` | Primer nivel shallow; subdirs con `lazy:true` |
+| `GET /api/tree?path=carpeta` | Hijos directos de carpeta (on-demand) |
 | `GET /api/svg?path=rel/ruta.dwg` | SVG del plano (convierte si no está en caché) |
 | `GET /api/search?path=rel/ruta.dwg&q=texto` | Busca texto en entidades DXF del plano |
+| `GET /api/search-tree?q=texto` | Búsqueda global vía FTS5; devuelve `[{path, count}]` |
+| `GET /api/index-status` | Estado del indexado `{running, pct, done, total, current}` |
+| `POST /api/reindex` | Borra índice y re-indexa todo en background |
 | `GET /` | Sirve el frontend (index.html) |
 
 La ruta en todos los endpoints es relativa a `planos_path`. Hay validación contra path traversal (`relative_to()` raises si sale del directorio base).
@@ -138,6 +142,15 @@ Planoak/
     │   └── ROTULAZIOA/
     └── PLATO 21/           ← plano 21 (estudio de producción)
 ```
+
+## Sistema de búsqueda global (search_index.py)
+
+- **Índice**: SQLite en `cache/search_index.db`. Tabla `entries` (path, path_mtime, text, nx, ny) + tabla FTS5 `entries_fts` con tokenizador trigrama (`case_sensitive 0`).
+- **Indexación**: `_update_search_index()` en el ciclo de mantenimiento. Detecta cambios por mtime; borra y re-indexa solo los planos modificados. Elimina entradas de planos borrados.
+- **Búsqueda global**: `search_index.search_all()` usa `MATCH '"query"'` (phrase search con comillas para que FTS5 no interprete `-` como NOT). Fallback a `LIKE` si FTS5 falla.
+- **Búsqueda en plano**: `search_index.search_in_file()` filtra por `path = ?` con índice B-tree — instantáneo.
+- **Migración**: `_check_migration()` detecta esquema antiguo (sin `entries_fts` trigrama) y borra la BD para re-indexado automático.
+- **Árbol lazy**: `GET /api/tree` solo devuelve el primer nivel. El frontend llama a `GET /api/tree?path=carpeta` al expandir. `startLoad(details)` es idempotente (usa `details._loadPromise`). `doTreeSearch` fuerza la carga de carpetas necesarias (ordenadas por profundidad) antes de resaltar archivos.
 
 ## Notas de diseño
 
