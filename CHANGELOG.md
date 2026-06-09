@@ -4,6 +4,14 @@ Todos los cambios relevantes de Planoen Bistaratzailea se documentan aquí.
 
 ---
 
+## [v2.0.2] — 2026-06-09
+
+### Cambiado
+
+- Montaje SMB configurado con opción `ro` (solo lectura) en README, CLAUDE.md e install-ubuntu.sh
+
+---
+
 ## [v2.0.1] — 2026-06-09
 
 ### Cambiado
